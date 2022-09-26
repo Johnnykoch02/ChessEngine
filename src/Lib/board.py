@@ -14,6 +14,10 @@ class Board:
     def __init__(self):
         drawables.append(self)
         self.current_state = START_POS
+        self.pieces = self.init_board()
+
+    def init_board(self):
+        pass
 
     def Draw(self):
         width = APP_DIMENSIONS[0]//RANK

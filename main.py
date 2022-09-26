@@ -1,10 +1,9 @@
 import os
-import sys
 PROJECT_PATH = os.getcwd()
-from src.Managers.AppManager import AppManager
 
 
 def main ():
+    from src.Managers.AppManager import AppManager
     print(PROJECT_PATH)
     AppManager(PROJECT_PATH)
 

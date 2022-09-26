@@ -1,5 +1,4 @@
 
-import os
 import pygame
 
 game_screen = [None]
@@ -7,7 +6,6 @@ drawables = []
 
 from ..Lib.board import Board
 from ..Utils.config import *
-from ..Lib.piece import Piece
 
 project_path = ''
 
@@ -17,20 +15,22 @@ Board()
 class AppManager:
     def __init__(self, path): 
         global project_path   
+        
         # Initialize all required params
         self.background_color = BACKROUND_COLOR
         self.screen = pygame.display.set_mode(APP_DIMENSIONS)
         game_screen[0] = self.screen
         project_path = path
-        Piece(Piece.Type.KNIGHT,Piece.Color.BLACK, (5,5))
+
         ## 
 
         # Initialize Application Paramaters
         pygame.display.set_caption('Chess: by John')
         self.screen.fill(self.background_color)
         self.Running = True
-        
-        self.spritesheet = spritesheet(os.path.join(project_path, 'data', 'assets', 'pieces.png'), 1, 1)
+
+        from ..Lib.piece import Piece
+        Piece(Piece.Type.KNIGHT,Piece.Color.BLACK, (5,5))
         ##
 
         # Start the App
