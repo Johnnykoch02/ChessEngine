@@ -1,13 +1,9 @@
 from enum import Enum
-import os
-from main import PROJECT_PATH
-from ..Managers.AppManager import drawables, game_screen, spritesheet
-from ..Utils.config import SQUARE_DIMENSIONS
-import pygame
+from ..Utils.imports import PROJECT_PATH, spritesheet, drawables, SQUARE_DIMENSIONS,game_screen, os
 
 ''''rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'''
 # This is our Piece Sprite Sheet
-sp = spritesheet(os.path.join(PROJECT_PATH, 'data', 'assets', 'pieces.png'), 1, 1)
+sp = None
 
 class Piece:
     
@@ -30,9 +26,13 @@ class Piece:
         drawables.append(self)
         
     
-    def Draw(self):       
-        XPOS = SQUARE_DIMENSIONS[0] * self.square[0]
-        YPOS = SQUARE_DIMENSIONS[1]*self.square[1]
+    def Draw(self):  
+        global sp
+        if sp == None:
+            sp = spritesheet(os.path.join(PROJECT_PATH, 'data', 'assets', 'pieces.png'), 1, 1)
+               
+        YPOS = SQUARE_DIMENSIONS[0] * self.square[0]
+        XPOS = SQUARE_DIMENSIONS[1]*self.square[1]
 
         game_screen[0].blit(sp.get(get_sprite_from_piece(self)),
            (XPOS, YPOS) )

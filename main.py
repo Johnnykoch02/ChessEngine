@@ -1,9 +1,9 @@
-import os
+from src.Utils.imports import os
 PROJECT_PATH = os.getcwd()
 
 
 def main ():
-    from src.Managers.AppManager import AppManager
+    from src.Utils.imports import AppManager
     print(PROJECT_PATH)
     AppManager(PROJECT_PATH)
 

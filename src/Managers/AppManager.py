@@ -1,19 +1,28 @@
 
-import pygame
+from ..Utils.imports import pygame, SQUARE_DIMENSIONS, BACKROUND_COLOR, APP_DIMENSIONS
 
 game_screen = [None]
 drawables = []
 
-from ..Lib.board import Board
-from ..Utils.config import *
-
 project_path = ''
 
+class spritesheet:
+    def __init__(self, path, rows: int, cols: int):
+        self.path = path
+        self.rows = rows
+        self.cols = cols
+        self.img = pygame.image.load(self.path).convert_alpha()
 
-Board()
+    ## Rectangle: (x, y, width, height)
+    def get(self, rect):
+        rectangle = pygame.Rect(rect)
+        image = pygame.Surface(rectangle.size, pygame.SRCALPHA)
+        image.blit(self.img, (0,0), rectangle)
+        image = pygame.transform.scale(image, SQUARE_DIMENSIONS)
+        return image
 
 class AppManager:
-    def __init__(self, path): 
+    def __init__(self, path):
         global project_path   
         
         # Initialize all required params
@@ -29,10 +38,13 @@ class AppManager:
         self.screen.fill(self.background_color)
         self.Running = True
 
-        from ..Lib.piece import Piece
-        Piece(Piece.Type.KNIGHT,Piece.Color.BLACK, (5,5))
+        # from ..Lib.piece import Piece
+        # Piece(Piece.Type.KNIGHT,Piece.Color.BLACK, (5,5))
         ##
 
+        from src.Utils.imports import Board 
+        self.Board = Board
+        self.board = self.Board()
         # Start the App
 
         self.Run()
@@ -52,20 +64,3 @@ class AppManager:
             drawable.Draw()
         pygame.display.flip()
 
-
-
-
-class spritesheet:
-    def __init__(self, path, rows: int, cols: int):
-        self.path = path
-        self.rows = rows
-        self.cols = cols
-        self.img = pygame.image.load(self.path).convert_alpha()
-
-    ## Rectangle: (x, y, width, height)
-    def get(self, rect):
-        rectangle = pygame.Rect(rect)
-        image = pygame.Surface(rectangle.size, pygame.SRCALPHA)
-        image.blit(self.img, (0,0), rectangle)
-        image = pygame.transform.scale(image, SQUARE_DIMENSIONS)
-        return image
