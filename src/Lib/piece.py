@@ -23,20 +23,31 @@ class Piece:
         self.type = type
         self.color = color
         self.square = square
+        self.selected = False
+        self.screen_pos = None
         drawables.append(self)
         
+    def set_screen_pos(self, pos):
+        self.screen_pos = pos
+        self.square_on = None    
     
+    def destroy(self):
+        self.selected = False
+        drawables.remove(self)
+
     def Draw(self):  
         global sp
         if sp == None:
             sp = spritesheet(os.path.join(PROJECT_PATH, 'data', 'assets', 'pieces.png'), 1, 1)
-               
-        YPOS = SQUARE_DIMENSIONS[0] * self.square[0]
-        XPOS = SQUARE_DIMENSIONS[1]*self.square[1]
+        if not self.selected:       
+            YPOS = SQUARE_DIMENSIONS[0] * self.square[0]
+            XPOS = SQUARE_DIMENSIONS[1]*self.square[1]
 
-        game_screen[0].blit(sp.get(get_sprite_from_piece(self)),
-           (XPOS, YPOS) )
-    
+            game_screen[0].blit(sp.get(get_sprite_from_piece(self)),
+               (XPOS, YPOS) )
+        else:
+            game_screen[0].blit(sp.get(get_sprite_from_piece(self)),
+               self.screen_pos )
      # Till next time.
 
 
