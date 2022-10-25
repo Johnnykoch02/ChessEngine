@@ -64,7 +64,6 @@ class AppManager:
     
     def Run(self):
         i = 0
-        last_mouse_press = None
         while self.Running:
             ## Top of Game Loop
             for event in pygame.event.get():
@@ -72,38 +71,29 @@ class AppManager:
                     self.Running = False
 
             # Mouse Events
-            if i % 5 == 0:
+            if i % 3 == 0:
                 i = 0
-                presses = pygame.mouse.get_pressed()
                 mouse_pos = pygame.mouse.get_pos()
-                if presses != last_mouse_press:
-                    self.mouse_events(mouse_pos, presses)
+                presses = pygame.mouse.get_pressed()
+                square_on = (mouse_pos[1]//SQUARE_DIMENSIONS[0], mouse_pos[0]//SQUARE_DIMENSIONS[0]) # Mouse to Square
+                if presses[0]:
+                   if self.piece_selected:
+                    pq = self.board.get_square(square_on)
+                    if pq:
+                        pq.destroy()
+                    self.piece_selected.square = square_on
+                    self.piece_selected.selected = False
+                    self.piece_selected = None
+                   else:
+                        self.piece_selected = self.board.get_square(square_on)
+                        if self.piece_selected:
+                            self.piece_selected.selected = True
                 
-                last_mouse_press = presses   
                 if self.piece_selected:
                     self.piece_selected.set_screen_pos(mouse_pos)
-
+                     
             i+=1
             self.Draw()
-
-    def mouse_events(self, mouse_pos, presses): 
-        square_on = (mouse_pos[1]//SQUARE_DIMENSIONS[0], mouse_pos[0]//SQUARE_DIMENSIONS[0]) # Mouse to Square
-        if presses[0]:
-           if self.piece_selected:
-            pq = self.board.get_square(square_on) # Query the board
-            if pq and self.piece_selected.color != pq.color or not pq:
-                if self.piece_selected != pq and pq:
-                    self.board.remove_piece(pq)
-                    pq.destroy()
-                self.piece_selected.square = square_on
-                self.piece_selected.selected = False
-                self.board.place_piece(self.piece_selected)
-                self.piece_selected = None                    
-           else:
-                self.piece_selected = self.board.get_square(square_on)
-                if self.piece_selected:
-                    self.board.remove_piece(self.piece_selected)
-                    self.piece_selected.selected = True
 
     def Draw(self):
         self.screen.fill(self.background_color)
