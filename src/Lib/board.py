@@ -34,6 +34,21 @@ class Board:
         
         return pieces
 
+    def get_square(self, pos):
+        for piece in self.pieces:
+            if piece.square == pos:
+                return piece
+        return None
+
+    
+    def remove_piece(self, piece):
+        for p in self.pieces:
+            if piece == p:
+                self.pieces.remove(piece)
+                break
+            
+    def place_piece(self, piece):
+        self.pieces.append(piece)
 
     def Draw(self):
         width = APP_DIMENSIONS[0]//RANK
