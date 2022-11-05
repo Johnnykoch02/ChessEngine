@@ -1,6 +1,6 @@
 #app manager
 
-from .config import BACKROUND_COLOR, SQUARE_COLOR, APP_DIMENSIONS, SQUARE_DIMENSIONS
+from .config import BACKROUND_COLOR, SQUARE_COLOR, APP_DIMENSIONS, SQUARE_DIMENSIONS, add_two_pos, is_in_board
 
 # board
 import pygame as pygame

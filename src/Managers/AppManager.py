@@ -57,6 +57,7 @@ class AppManager:
 
         self.current_player = Player('black')
         self.current_player.next = Player('white')
+        self.current_player.next.next = self.current_player
         self.piece_selected = None
         # Start the App
 
@@ -98,9 +99,12 @@ class AppManager:
                 self.piece_selected.square = square_on
                 self.piece_selected.selected = False
                 self.board.place_piece(self.piece_selected)
-                self.piece_selected = None                    
-           else:
-                self.piece_selected = self.board.get_square(square_on)
+                self.piece_selected = None
+                self.current_player = self.current_player.next                    
+           else: #We need to validate the proper color has been selected
+                temp_piece = self.board.get_square(square_on)
+                if temp_piece is not None and temp_piece.color == self.current_player.type:
+                    self.piece_selected = temp_piece
                 if self.piece_selected:
                     self.board.remove_piece(self.piece_selected)
                     self.piece_selected.selected = True
