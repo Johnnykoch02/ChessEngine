@@ -59,6 +59,8 @@ class AppManager:
         self.current_player.next = Player('white')
         self.current_player.next.next = self.current_player
         self.piece_selected = None
+
+        self.board.current_color = self.current_player.type
         # Start the App
 
         self.Run()
@@ -89,6 +91,7 @@ class AppManager:
 
     def mouse_events(self, mouse_pos, presses): 
         square_on = (mouse_pos[1]//SQUARE_DIMENSIONS[0], mouse_pos[0]//SQUARE_DIMENSIONS[0]) # Mouse to Square
+        print(square_on)
         if presses[0]:
            if self.piece_selected:
             pq = self.board.get_square(square_on) # Query the board
@@ -96,11 +99,14 @@ class AppManager:
                 if self.piece_selected != pq and pq:
                     self.board.remove_piece(pq)
                     pq.destroy()
+                made_move_on_board = not (self.piece_selected.square == square_on)
                 self.piece_selected.square = square_on
                 self.piece_selected.selected = False
                 self.board.place_piece(self.piece_selected)
                 self.piece_selected = None
-                self.current_player = self.current_player.next                    
+                if made_move_on_board:
+                    self.current_player = self.current_player.next  
+                    self.board.current_color = self.current_player.type                  
            else: #We need to validate the proper color has been selected
                 temp_piece = self.board.get_square(square_on)
                 if temp_piece is not None and temp_piece.color == self.current_player.type:
