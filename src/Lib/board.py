@@ -8,12 +8,26 @@ START_POS = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
 
 
 class Board:
-    def __init__(self):
-        from ..Utils.imports import get_piece_from_fen
+    def __init__(self, virtual=False):
+        from ..Utils.imports import get_piece_from_fen, Piece
         self.get_piece_from_fen = get_piece_from_fen
+        self.PieceClass = Piece
+        if virtual:
+            return
         drawables.append(self)
         self.current_state = START_POS
         self.pieces = self.init_board()
+
+
+        self.white_king = None
+        self.black_king = None
+        for piece in self.pieces:
+            if piece.type == piece.Type.KING:
+                if piece.color == piece.Color.WHITE:
+                    self.white_king = piece 
+                else:
+                    self.black_king = piece
+        self.current_color = None
 
     def init_board(self):
          
@@ -40,6 +54,19 @@ class Board:
                 return piece
         return None
 
+    def create_virtual_board(self):
+        virtual_board = Board(True)
+        for piece in self.pieces:
+            virtual_board.pieces.append(self.PieceClass.create_virtual_piece(piece))
+        virtual_board.white_king = None
+        virtual_board.black_king = None
+        for piece in virtual_board.pieces:
+            if piece.type == piece.Type.KING:
+                if piece.color == piece.Color.WHITE:
+                    virtual_board.white_king = piece 
+                else:
+                    virtual_board.black_king = piece
+        virtual_board.current_color = self.current_color
     
     def remove_piece(self, piece):
         for p in self.pieces:
@@ -49,6 +76,15 @@ class Board:
             
     def place_piece(self, piece):
         self.pieces.append(piece)
+    
+    def play_move(self, piece, move):
+        self.remove_piece(piece)
+        pq = self.get_square(move)
+        if pq is not None:
+            pq.Destroy()
+        self.piece.square = move
+        self.place_piece(piece)
+
 
     def Draw(self):
         width = APP_DIMENSIONS[0]//RANK

@@ -19,14 +19,20 @@ class Piece:
         WHITE = 0
         BLACK = 1
     
-    def __init__(self, type:Type, color:Color, square):
+    def __init__(self, type:Type, color:Color, square, visible=True):
         self.type = type
+        self.visible = visible
         self.color = color
         self.square = square
         self.selected = False
         self.screen_pos = None
-        drawables.append(self)
-        
+        if visible:
+            drawables.append(self)
+    
+    @staticmethod
+    def create_virtual_piece(piece:'Piece'):
+        return Piece(piece.type, piece.color, piece.square, visible=False)
+
     def set_screen_pos(self, pos):
         self.screen_pos = pos
         self.square_on = None    
