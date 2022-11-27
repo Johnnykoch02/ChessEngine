@@ -40,18 +40,14 @@ class AppManager:
         game_screen[0] = self.screen
         project_path = path
 
-        ## 
 
         # Initialize Application Paramaters
         pygame.display.set_caption('Chess: by John')
         self.screen.fill(self.background_color)
         self.Running = True
 
-        # from ..Lib.piece import Piece
-        # Piece(Piece.Type.KNIGHT,Piece.Color.BLACK, (5,5))
-        ##
 
-        from src.Utils.imports import Board 
+        from src.Utils.imports import Board, MoveGenerator 
         self.Board = Board
         self.board = self.Board()
 
@@ -59,10 +55,11 @@ class AppManager:
         self.current_player.next = Player('white')
         self.current_player.next.next = self.current_player
         self.piece_selected = None
+        self.legal_moves = None
 
         self.board.current_color = self.current_player.type
         # Start the App
-
+        self.MoveGenerator = MoveGenerator
         self.Run()
     
     def Run(self):
@@ -90,23 +87,24 @@ class AppManager:
             self.Draw()
 
     def mouse_events(self, mouse_pos, presses): 
-        square_on = (mouse_pos[1]//SQUARE_DIMENSIONS[0], mouse_pos[0]//SQUARE_DIMENSIONS[0]) # Mouse to Square
+        square_on = (int(mouse_pos[1]//SQUARE_DIMENSIONS[0]), int(mouse_pos[0]//SQUARE_DIMENSIONS[0])) # Mouse to Square
         print(square_on)
         if presses[0]:
            if self.piece_selected:
-            pq = self.board.get_square(square_on) # Query the board
-            if pq and self.piece_selected.color != pq.color or not pq:
-                if self.piece_selected != pq and pq:
-                    self.board.remove_piece(pq)
-                    pq.destroy()
-                made_move_on_board = not (self.piece_selected.square == square_on)
-                self.piece_selected.square = square_on
-                self.piece_selected.selected = False
-                self.board.place_piece(self.piece_selected)
-                self.piece_selected = None
-                if made_move_on_board:
+            made_move_on_board = not (self.piece_selected.square == square_on)
+            if made_move_on_board:
+                if square_on in self.legal_moves:
+                    self.board.play_move(self.piece_selected, square_on)
+                    self.piece_selected.selected = False
+                    self.piece_selected = None
+                    self.board.selected_squares = []
                     self.current_player = self.current_player.next  
-                    self.board.current_color = self.current_player.type                  
+                    self.board.current_color = self.current_player.type 
+            else:
+                self.board.play_move(self.piece_selected, square_on)
+                self.piece_selected.selected = False
+                self.piece_selected = None
+
            else: #We need to validate the proper color has been selected
                 temp_piece = self.board.get_square(square_on)
                 if temp_piece is not None and temp_piece.color == self.current_player.type:
@@ -114,6 +112,9 @@ class AppManager:
                 if self.piece_selected:
                     self.board.remove_piece(self.piece_selected)
                     self.piece_selected.selected = True
+                    self.legal_moves = tuple(tuple([int(x[0]), int(x[1])]) for x in self.MoveGenerator.GenerateLegalMoves(self.piece_selected, self.board))
+                    self.board.selected_squares = self.legal_moves
+                    print(self.board.selected_squares)
 
     def Draw(self):
         self.screen.fill(self.background_color)
@@ -121,3 +122,30 @@ class AppManager:
             drawable.Draw()
         pygame.display.flip()
 
+
+
+# def mouse_events(self, mouse_pos, presses): 
+#         square_on = (mouse_pos[1]//SQUARE_DIMENSIONS[0], mouse_pos[0]//SQUARE_DIMENSIONS[0]) # Mouse to Square
+#         print(square_on)
+#         if presses[0]:
+#            if self.piece_selected:
+#             pq = self.board.get_square(square_on) # Query the board
+#             if pq and self.piece_selected.color != pq.color or not pq:
+#                 if self.piece_selected != pq and pq:
+#                     self.board.remove_piece(pq)
+#                     pq.destroy()
+#                 made_move_on_board = not (self.piece_selected.square == square_on)
+#                 self.piece_selected.square = square_on
+#                 self.piece_selected.selected = False
+#                 self.board.place_piece(self.piece_selected)
+#                 self.piece_selected = None
+#                 if made_move_on_board:
+#                     self.current_player = self.current_player.next  
+#                     self.board.current_color = self.current_player.type                  
+#            else: #We need to validate the proper color has been selected
+#                 temp_piece = self.board.get_square(square_on)
+#                 if temp_piece is not None and temp_piece.color == self.current_player.type:
+#                     self.piece_selected = temp_piece
+#                 if self.piece_selected:
+#                     self.board.remove_piece(self.piece_selected)
+#                     self.piece_selected.selected = True

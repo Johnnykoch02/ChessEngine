@@ -1,5 +1,5 @@
 
-from ..Utils.imports import  SQUARE_COLOR, APP_DIMENSIONS, drawables, pygame, game_screen
+from ..Utils.imports import  SQUARE_COLOR, SELECTED_COLOR, APP_DIMENSIONS, drawables, pygame, game_screen
 FILE = 8
 RANK = 8
 
@@ -12,9 +12,11 @@ class Board:
         from ..Utils.imports import get_piece_from_fen, Piece
         self.get_piece_from_fen = get_piece_from_fen
         self.PieceClass = Piece
+        self.pieces = []
         if virtual:
             return
         drawables.append(self)
+        self.selected_squares = []
         self.current_state = START_POS
         self.pieces = self.init_board()
 
@@ -67,6 +69,7 @@ class Board:
                 else:
                     virtual_board.black_king = piece
         virtual_board.current_color = self.current_color
+        return virtual_board
     
     def remove_piece(self, piece):
         for p in self.pieces:
@@ -81,10 +84,28 @@ class Board:
         self.remove_piece(piece)
         pq = self.get_square(move)
         if pq is not None:
-            pq.Destroy()
-        self.piece.square = move
+            if pq == self.white_king:
+                self.white_king.piece = None
+            elif pq == self.black_king:
+                self.black_king.piece = None
+            self.remove_piece(pq)
+            pq.destroy()
+        piece.square = move
         self.place_piece(piece)
+    
+    def get_black_pieces(self):
+        black_pieces = []
+        for piece in self.pieces:
+            if piece.color == piece.Color.BLACK:
+                black_pieces.append(piece)
+        return black_pieces
 
+    def get_white_pieces(self):
+        white_pieces = []
+        for piece in self.pieces:
+            if piece.color == piece.Color.WHITE:
+                white_pieces.append(piece)
+        return white_pieces
 
     def Draw(self):
         width = APP_DIMENSIONS[0]//RANK
@@ -92,5 +113,8 @@ class Board:
         
         for i in range(FILE):
             for j in range(i%2, RANK, 2):
-                pygame.draw.rect(game_screen[0], SQUARE_COLOR, (i*width, j*height, width, height))
+                # if (j, i) in self.selected_squares:
+                #     pygame.draw.rect(game_screen[0], SELECTED_COLOR, (i*width, j*height, width, height))
+                # else:
+                    pygame.draw.rect(game_screen[0], SQUARE_COLOR, (i*width, j*height, width, height))
 

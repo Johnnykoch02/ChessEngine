@@ -36,10 +36,11 @@ class Piece:
     def set_screen_pos(self, pos):
         self.screen_pos = pos
         self.square_on = None    
-    
+        
     def destroy(self):
         self.selected = False
-        drawables.remove(self)
+        if self.visible:
+            drawables.remove(self)
 
     def Draw(self):  
         global sp
@@ -68,10 +69,10 @@ def get_piece_from_fen(character:str, square):
 
 def get_sprite_from_piece(piece:'Piece'):
     if piece.color == Piece.Color.WHITE:
-        return {Piece.Type.QUEEN: (0,0,333,333), Piece.Type.KING: (333,0,333,333), 
+        return {Piece.Type.KING: (0,0,333,333), Piece.Type.QUEEN: (333,0,333,333), 
         Piece.Type.BISHOP:(666,0,333,333), Piece.Type.KNIGHT: (999,0,333,333), 
         Piece.Type.ROOK: (1332,0,333,333), Piece.Type.PAWN:(1665,0,333,333)}[piece.type]
     else:
-         return {Piece.Type.QUEEN: (0,334,333,333), Piece.Type.KING: (333,334,333,333), 
+         return {Piece.Type.KING: (0,334,333,333), Piece.Type.QUEEN: (333,334,333,333), 
         Piece.Type.BISHOP:(666,334,333,333), Piece.Type.KNIGHT: (999,334,333,333), 
         Piece.Type.ROOK: (1332,334,333,333), Piece.Type.PAWN:(1665,334,333,333)}[piece.type]
