@@ -5,7 +5,7 @@ PAWN_BLACK = 3
 HORSIE = 4
 KING = 5
 
-from ..Utils.imports import Piece, add_two_pos, is_in_board
+from ..Utils.imports import Piece, Board, add_two_pos, is_in_board
 class MoveGenerator:
     @staticmethod
     def GenerateLegalMoves(piece, board):
@@ -14,42 +14,120 @@ class MoveGenerator:
         """
         MoveTypes = Move.GetMoveSet(piece)
         LegalMoves = []
-        PseudoLegalMoves = {}
-        MoveGenerator.GetPseudoLegalMoves(PseudoLegalMoves, MoveTypes, piece, board)
+        PseudoLegalMoves = set()
+        king_in_check = False
+        if not MoveGenerator.is_king_in_check(piece.color, board):
+            MoveGenerator.GetPseudoLegalMoves(PseudoLegalMoves, MoveTypes, piece, board, False)
+        else:
+            if piece.type != Piece.Type.KING:
+                return LegalMoves
+            king_in_check = True
+            MoveGenerator.GetPseudoLegalMoves(PseudoLegalMoves, MoveTypes, piece, board)
+            
+        print('PseudoLegalMoves', PseudoLegalMoves)
+        if king_in_check and len(PseudoLegalMoves) == 0:
+            print('Checkmate.')
+            while True:
+                pass
+            
+        for move in PseudoLegalMoves:
+            virtual_board = board.create_virtual_board() 
+            vPiece = Piece.create_virtual_piece(piece)
+            virtual_board.play_move(vPiece, move)
+            
+            if not MoveGenerator.is_king_in_check(vPiece.color, virtual_board):
+                LegalMoves.append(move)
+            else:
+                pass
+        return LegalMoves
 
     @staticmethod
-    def GetPseudoLegalMoves(PseudoLegalMoves, MoveTypes, piece, board):
+    def is_king_in_check(current_color, board):
+        if current_color == Piece.Color.WHITE:
+            black_pieces = board.get_black_pieces()
+            
+            for piece in black_pieces:
+                virtual_board = board.create_virtual_board() 
+                vPiece = virtual_board.get_square(piece.square)
+                PseudoLegalMoves = set()
+                MoveGenerator.GetPseudoLegalMoves(PseudoLegalMoves, Move.GetMoveSet(vPiece), vPiece, virtual_board)
+                for move in PseudoLegalMoves:
+                    if virtual_board.white_king and move == virtual_board.white_king.square:
+                        print('King in Check')
+                        return True
+
+        elif current_color == Piece.Color.BLACK:
+            white_pieces = board.get_white_pieces()
+            
+            for piece in white_pieces:
+                virtual_board = board.create_virtual_board() 
+                vPiece = virtual_board.get_square(piece.square)
+                PseudoLegalMoves = set()
+                MoveGenerator.GetPseudoLegalMoves(PseudoLegalMoves, Move.GetMoveSet(vPiece), vPiece, virtual_board)
+                for move in PseudoLegalMoves:
+                    if virtual_board.black_king and move == virtual_board.black_king.square:
+                        print('King in Check')
+                        return True
+                        
+        return False
+
+    @staticmethod
+    def GetPseudoLegalMoves(PseudoLegalMoves, MoveTypes, piece, board, debug=False):
         initial_pos = piece.square
         for move_type in MoveTypes:
             if move_type == NSEW:
-                n, s, e, w = (-1, 0), (1,0), (0,1), (0,-1)
-                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, n), board, n) # North
-                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, s), board, s) # South
-                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, e), board, e) # East
-                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, w), board, w) # West
+                n = (-1, 0)
+                s = (1,0)
+                e = (0,1)
+                w = (0,-1)
+                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, n), board, n, debug) # North
+                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, s), board, s, debug) # South
+                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, e), board, e, debug) # East
+                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, w), board, w, debug) # West
             if move_type == DIAGANOL:
-                ne, se, nw, sw = (1, -1), (1, 1), (-1,-1), (1,-1)
-                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, n), board, ne) # NE
-                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, s), board, se) #SE
-                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, e), board, nw) #NW
-                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, w), board, sw) #SW
+                ne = (1, -1)
+                se = (1, 1)
+                nw = (-1,-1)
+                sw = (-1, 1)
+                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, ne), board, ne, debug) # NE
+                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, se), board, se, debug) #SE
+                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, nw), board, nw, debug) #NW
+                MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, sw), board, sw, debug) #SW
             if move_type == PAWN_WHITE:
                 MoveGenerator.pawn_moves(PseudoLegalMoves, piece, initial_pos, board, 1)
             if move_type == PAWN_BLACK:
                 MoveGenerator.pawn_moves(PseudoLegalMoves, piece, initial_pos, board, -1)
             if move_type == KING:
                 MoveGenerator.king_moves(PseudoLegalMoves, piece, initial_pos, board)
+            if move_type == HORSIE:
+                MoveGenerator.horsie_moves(PseudoLegalMoves, piece, initial_pos, board)
 
     @staticmethod
     def king_moves(PseudoLegalMoves, piece, pos, board):
         poses = add_two_pos(pos, (-1, -1)), add_two_pos(pos, (-1,0)), add_two_pos(pos, (-1,1)), add_two_pos(pos, (0, 1)), add_two_pos(pos, (0,-1)), add_two_pos(pos, (1,0)), add_two_pos(pos, (1,-1)), add_two_pos(pos, (1,1)) 
-        valid_poses = []
         for spot in poses:
             if is_in_board(spot):
-                valid_poses.append(spot)
+                temp_piece = board.get_square(spot)
+                if temp_piece is None:
+                    PseudoLegalMoves.add(spot)
+                else:
+                    if temp_piece.color != piece.color:
+                        PseudoLegalMoves.add(spot)
+    @staticmethod
+    def horsie_moves(PseudoLegalMoves, piece, pos, board):
+        poses = add_two_pos(pos, (-1, -2)), add_two_pos(pos, (-1,2)), add_two_pos(pos, (1,-2)), add_two_pos(pos, (1, 2)), add_two_pos(pos, (2,-1)), add_two_pos(pos, (2,1)), add_two_pos(pos, (-2,-1)), add_two_pos(pos, (-2,1)) 
+        for spot in poses:
+            if is_in_board(spot):
+                temp_piece = board.get_square(spot)
+                if temp_piece is None:
+                    PseudoLegalMoves.add(spot)
+                else:
+                    if temp_piece.color != piece.color:
+                        PseudoLegalMoves.add(spot)    
+        
         '''
-            - Finish the King Logic
-            - Finish Horsie Logic
+            - Finish the King  /
+            - Finish Horsie Logic /
             DONE FOR PSEUDOLEGAL
             - take the pseudolegal moves, play the move on a virtual board, check to see if the king is in check
             - if the king is not in check, then the move is valid
@@ -82,24 +160,27 @@ class MoveGenerator:
             PsuedoLegalMoves.add(add_two_pos(pos, (direction, 0)))
         # 1 Diagonal    
         temp_piece = board.get_square(add_two_pos(pos, (direction, direction)))
-        if temp_piece is not None:
+        if temp_piece is not None and piece.color != temp_piece.color:
             PsuedoLegalMoves.add(add_two_pos(pos, (direction, direction)))
         # 1 Diagonal
         temp_piece = board.get_square(add_two_pos(pos, (direction, -direction)))
-        if temp_piece is not None:
+        if temp_piece is not None and piece.color != temp_piece.color:
             PsuedoLegalMoves.add(add_two_pos(pos, (direction, -direction)))                   
                 
     @staticmethod
-    def MoveInDirectionNorm(PsuedoLegalMoves, piece, pos, board, direction):
+    def MoveInDirectionNorm(PsuedoLegalMoves, piece, pos, board, direction, debug=False):
         if not is_in_board(pos):
             return
         temp_piece = board.get_square(pos)
         if temp_piece is None:
             PsuedoLegalMoves.add(pos)
-            MoveGenerator.MoveInDirectionNorm(PsuedoLegalMoves, piece, add_two_pos(pos, direction), board, direction)
+            MoveGenerator.MoveInDirectionNorm(PsuedoLegalMoves, piece, add_two_pos(pos, direction), board, direction, True)
         else:
             if temp_piece.color != piece.color:
                 PsuedoLegalMoves.add(pos)
+            else:
+                if debug:
+                    print('BLOCKED: by',temp_piece.color != piece.color, 'Piece:', temp_piece.type, temp_piece.square )
             return
 
 class Move:
@@ -116,5 +197,5 @@ class Move:
             MoveTypes.append(KING)
         elif piece.type == Piece.Type.PAWN:
             MoveTypes.append(PAWN_WHITE) if piece.color == Piece.Color.WHITE else MoveTypes.append(PAWN_BLACK)
-
         
+        return MoveTypes
