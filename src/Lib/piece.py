@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import IntEnum
 from ..Utils.imports import PROJECT_PATH, spritesheet, drawables, SQUARE_DIMENSIONS,game_screen, os
 
 ''''rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'''
@@ -7,7 +7,7 @@ sp = None
 
 class Piece:
     
-    class Type(Enum): ## Characteristic Type
+    class Type(IntEnum): ## Characteristic Type
         KING = 0
         QUEEN = 1
         KNIGHT = 2
@@ -15,7 +15,7 @@ class Piece:
         ROOK = 4
         PAWN = 5
 
-    class Color(Enum):
+    class Color(IntEnum):
         WHITE = 0
         BLACK = 1
     
@@ -36,11 +36,22 @@ class Piece:
     def set_screen_pos(self, pos):
         self.screen_pos = pos
         self.square_on = None    
-        
+    
+    def score(self):
+        return{Piece.Type.PAWN:1 + self.distance_from_queen(),
+         Piece.Type.KNIGHT:4, Piece.Type.ROOK:5, Piece.Type.BISHOP:5,
+         Piece.Type.QUEEN: 10, Piece.Type.KING: 20}[self.type]
+
     def destroy(self):
         self.selected = False
         if self.visible:
             drawables.remove(self)
+    
+    def distance_from_queen(self):
+        if self.color == Piece.Color.WHITE:
+            return (7 - self.square) / 7
+        elif self.color == Piece.Color.BLACK:
+            return self.square[0] / 7    
 
     def Draw(self):  
         global sp

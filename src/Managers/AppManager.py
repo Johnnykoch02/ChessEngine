@@ -103,6 +103,7 @@ class AppManager:
             else:
                 self.board.play_move(self.piece_selected, square_on)
                 self.piece_selected.selected = False
+                self.board.selected_squares = []
                 self.piece_selected = None
 
            else: #We need to validate the proper color has been selected

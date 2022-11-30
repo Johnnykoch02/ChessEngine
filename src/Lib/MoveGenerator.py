@@ -16,19 +16,20 @@ class MoveGenerator:
         LegalMoves = []
         PseudoLegalMoves = set()
         king_in_check = False
-        if not MoveGenerator.is_king_in_check(piece.color, board):
+        
+        v_board = board.create_virtual_board()
+        v_piece = Piece.create_virtual_piece(piece)
+        v_board.play_move(v_piece, v_piece.square)        
+        if not MoveGenerator.is_king_in_check(piece.color, v_board):
             MoveGenerator.GetPseudoLegalMoves(PseudoLegalMoves, MoveTypes, piece, board, False)
         else:
+            king_in_check = True
             if piece.type != Piece.Type.KING:
                 return LegalMoves
-            king_in_check = True
             MoveGenerator.GetPseudoLegalMoves(PseudoLegalMoves, MoveTypes, piece, board)
             
         print('PseudoLegalMoves', PseudoLegalMoves)
-        if king_in_check and len(PseudoLegalMoves) == 0:
-            print('Checkmate.')
-            while True:
-                pass
+        
             
         for move in PseudoLegalMoves:
             virtual_board = board.create_virtual_board() 
@@ -39,6 +40,10 @@ class MoveGenerator:
                 LegalMoves.append(move)
             else:
                 pass
+        print(king_in_check, len(LegalMoves))
+        if king_in_check and len(LegalMoves) == 0:
+            print('Checkmate.')
+            exit(0)                
         return LegalMoves
 
     @staticmethod

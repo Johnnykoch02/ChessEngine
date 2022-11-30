@@ -1,4 +1,4 @@
-
+import numpy as np
 from ..Utils.imports import  SQUARE_COLOR, SELECTED_COLOR, APP_DIMENSIONS, drawables, pygame, game_screen
 FILE = 8
 RANK = 8
@@ -90,7 +90,12 @@ class Board:
                 self.black_king.piece = None
             self.remove_piece(pq)
             pq.destroy()
-        piece.square = move
+        piece.square = move   
+         
+        if piece.type == piece.Type.PAWN:
+            if piece.square[0] == 0 and piece.color == piece.Color.BLACK or piece.square[0] == 7 and piece.color == piece.Color.WHITE:
+                piece.type = piece.Type.QUEEN
+                
         self.place_piece(piece)
     
     def get_black_pieces(self):
@@ -113,8 +118,42 @@ class Board:
         
         for i in range(FILE):
             for j in range(i%2, RANK, 2):
-                # if (j, i) in self.selected_squares:
-                #     pygame.draw.rect(game_screen[0], SELECTED_COLOR, (i*width, j*height, width, height))
-                # else:
                     pygame.draw.rect(game_screen[0], SQUARE_COLOR, (i*width, j*height, width, height))
+        
+        for pos in self.selected_squares:
+            # pygame.draw.rect(game_screen[0], SELECTED_COLOR, (pos[1]*width, pos[0]*height, width, height))
+            s = pygame.Surface((width,height))  # the size of your rect
+            s.set_alpha(50)                # alpha level
+            s.fill(SELECTED_COLOR)           # this fills the entire surface
+            game_screen[0].blit(s, (pos[1]*width,pos[0]*height))    # (0,0) are the top-left coordinates
+    
+    def get_state(self, team_color):
+        board_state = np.zeros(shape=(8,8,2))
+        for piece in self.pieces:
+            board_state[piece.square[0], piece.square[1], 0] = int(piece.color) + 1
+            board_state[piece.square[0], piece.square[1], 1] = int(piece.type) + 1
+        white_score = self.get_white_score()
+        black_score = self.get_black_score()
+        score = white_score - black_score if team_color == self.PieceClass.Color.WHITE else black_score - white_score
 
+        return {
+            'board_state': board_state,
+            'team_color': int(team_color) + 1,
+            'score': score
+        }
+
+        
+
+    def get_white_score(self):
+        white_score = 0
+        for piece in self.pieces:
+            if piece.color == piece.Color.WHITE:
+                white_score += piece.score()
+        return white_score
+        
+    def get_black_score(self):
+        black_score = 0
+        for piece in self.pieces:
+            if piece.color == piece.Color.BLACK:
+                black_score += piece.score()
+        return black_score
