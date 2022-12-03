@@ -19,7 +19,8 @@ class MoveGenerator:
         
         v_board = board.create_virtual_board()
         v_piece = Piece.create_virtual_piece(piece)
-        v_board.play_move(v_piece, v_piece.square)        
+        if v_board.get_square(v_piece.square) is None:
+            v_board.play_move(v_piece, v_piece.square)        
         if not MoveGenerator.is_king_in_check(piece.color, v_board):
             MoveGenerator.GetPseudoLegalMoves(PseudoLegalMoves, MoveTypes, piece, board, False)
         else:
@@ -40,11 +41,12 @@ class MoveGenerator:
                 LegalMoves.append(move)
             else:
                 pass
-        print(king_in_check, len(LegalMoves))
+
+        king_in_checkmate = False
         if king_in_check and len(LegalMoves) == 0:
-            print('Checkmate.')
-            exit(0)                
-        return LegalMoves
+            king_in_checkmate = True
+
+        return LegalMoves, king_in_check, king_in_checkmate
 
     @staticmethod
     def is_king_in_check(current_color, board):
