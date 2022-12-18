@@ -110,10 +110,6 @@ class GrandMasterEnv(Env):
         self.board.update_board_state(wk_check, wk_ckm, bk_check, bk_ckm)
 
 
-
-
-
-
     def reset(self):
         pass
 
@@ -133,12 +129,11 @@ class GrandMasterEnv(Env):
         if move not in moveset:
             reward = -25
             return reward, done
-
-        else: 
-            '''Reward Model For picking a move in the moveset'''
-            reward+= 3
         
-        reward += 1.8 * score
+        '''  Valid Move     US           Them  '''
+        reward+= 1 + 50*check[1] - 50*check[0]        
+        
+        return reward + 1.8 * score
         
         
 
