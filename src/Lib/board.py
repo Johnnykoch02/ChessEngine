@@ -23,6 +23,11 @@ class Board:
 
         self.white_king = None
         self.black_king = None
+        self.wK_in_check = False
+        self.wK_in_checkmate = False
+        self.bK_in_check = False
+        self.bK_in_checkmate = False
+
         for piece in self.pieces:
             if piece.type == piece.Type.KING:
                 if piece.color == piece.Color.WHITE:
@@ -134,15 +139,29 @@ class Board:
             board_state[piece.square[0], piece.square[1], 1] = int(piece.type) + 1
         white_score = self.get_white_score()
         black_score = self.get_black_score()
+        us = False
+        them = False
+        if team_color == self.PieceClass.Color.WHITE:
+            us = self.wK_in_check
+            them = self.bK_in_check
+        else:
+            us = self.bK_in_check
+            them = self.wK_in_check
+        
         score = white_score - black_score if team_color == self.PieceClass.Color.WHITE else black_score - white_score
 
         return {
             'board_state': board_state,
             'team_color': int(team_color) + 1,
-            'score': score
+            'score': score,
+            'check': np.array([us, them])
         }
 
-        
+    def update_board_state(self, white_king_check, white_king_checkmate, black_king_check, black_king_checkmate):
+        self.wK_in_check = white_king_check
+        self.wK_in_checkmate = white_king_checkmate
+        self.bK_in_check = black_king_check
+        self.bK_in_checkmate = black_king_checkmate
 
     def get_white_score(self):
         white_score = 0
@@ -157,3 +176,38 @@ class Board:
             if piece.color == piece.Color.BLACK:
                 black_score += piece.score()
         return black_score
+    
+    def get_winner(self, team_color):
+        if self.bK_in_checkmate or self.wK_in_checkmate:
+            win = False
+            if team_color == self.PieceClass.Color.WHITE:
+                return [win, self.bK_in_checkmate, self.wK_in_checkmate]
+            else:
+                return [win, self.wK_in_checkmate, self.bK_in_checkmate]
+        return [False, False]
+
+    def reset_board(self):
+        for piece in self.pieces:
+            piece.destroy()
+
+        self.pieces = []
+
+        self.selected_squares = []
+        self.current_state = START_POS
+        self.pieces = self.init_board()
+
+
+        self.white_king = None
+        self.black_king = None
+        self.wK_in_check = False
+        self.wK_in_checkmate = False
+        self.bK_in_check = False
+        self.bK_in_checkmate = False
+
+        for piece in self.pieces:
+            if piece.type == piece.Type.KING:
+                if piece.color == piece.Color.WHITE:
+                    self.white_king = piece 
+                else:
+                    self.black_king = piece
+        self.current_color = None
