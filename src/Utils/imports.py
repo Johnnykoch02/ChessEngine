@@ -19,3 +19,5 @@ from ..Lib.piece import Piece, get_piece_from_fen, get_sprite_from_piece
 
 from ..Lib.MoveGenerator import MoveGenerator
 
+from ..Managers.RL.GrandMasterPPO import GrandMasterPPO, GrandMasterJudge, AgentPtr
+
