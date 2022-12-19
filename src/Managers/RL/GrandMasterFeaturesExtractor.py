@@ -1,4 +1,3 @@
-# from .custom_gym import BarrettHandGym
 from stable_baselines3 import PPO
 import os
 from typing import Dict, List
@@ -25,7 +24,8 @@ class GrandMasterFeaturesExtractor(BaseFeaturesExtractor):
                         nn.LeakyReLU(),
                         nn.MaxPool2d(2,2),
                         nn.Flatten(),
-                        nn.Linear(768, 128, activation='relu')
+                        nn.Linear(768, 128),
+                        nn.LeakyReLU()
                         )
                     total_concat_size += 128
                 elif key == 'team_color': 
@@ -33,7 +33,7 @@ class GrandMasterFeaturesExtractor(BaseFeaturesExtractor):
                         nn.Linear(1, 4),
                         nn.Sigmoid(),
                         nn.Linear(4, 16),
-                        nn.Sigmoid(),
+                        nn.Sigmoid()
                     )
                     total_concat_size += 16
                 elif key == 'score':
@@ -41,15 +41,15 @@ class GrandMasterFeaturesExtractor(BaseFeaturesExtractor):
                         nn.Linear(1, 4),
                         nn.Sigmoid(),
                         nn.Linear(4, 16),
-                        nn.Sigmoid(),
+                        nn.Sigmoid()
                     )
                     total_concat_size += 16
                 elif key == 'check':
-                    extractors[key] == nn.Sequential(
+                    extractors[key] = nn.Sequential(
                         nn.Linear(1, 8),
                         nn.Sigmoid(),
                         nn.Linear(8, 32),
-                        nn.Sigmoid(),
+                        nn.Sigmoid()
                     )
                     total_concat_size += 32
    

@@ -56,22 +56,25 @@
         
         if DRAW rew+= -5
 '''
-import os
 from gym import Env
 from gym.spaces import Discrete, MultiDiscrete, Box, Dict, Space
 from math import inf, radians, degrees
-
+import numpy as np
 import time
 #import AppManager
 
-VERSION = 'GM-PPO-0.0.1'
+observation_space = {
+            'board_state': Box(low=0, high=6, shape=(8,8,2)),
+            'team_color': Discrete(1),
+            'score': Box(low=-250, high=250, shape=(1,)),
+            'check': MultiDiscrete([1,1])
+        }
 
-CHECKPOINT_DIR = os.path.join(os.getcwd(), 'Reinforcement Learning','src','RL','Training', 'Checkpoints', NAME)
-LOG_DIR = os.path.join(os.getcwd(), 'Training', 'Logs', VERSION)
-SAVE_FREQ = 200
+action_space = MultiDiscrete([7, 7, 7, 7])
 
 
 class GrandMasterEnv(Env):
+    global observation_space, action_space
     from ...Utils.imports import Piece, Board
     def __init__(self, board:Board =None, team_color:Piece.Color = None):
         from ...Utils.imports import MoveGenerator
@@ -80,18 +83,15 @@ class GrandMasterEnv(Env):
         self._board = board
         self._team_color = team_color
         self.MoveGen = MoveGenerator
-        spaces = {
-            'board_state': Box(low=0, high=(6,2), shape=(8,8,2)),
-            'team_color': Discrete(low=1, high=2),
-            'score': Box(low=-250, high=250, shape=(1,)),
-            'check': MultiDiscrete([1,1]),
-        }
+        
 
-        self.observation_space = Dict(spaces)
+        self.observation_space = Dict(observation_space)
+        
+        self.state = None    
+        if self._board:
+            self.state = self._board.get_state(self._team_color)
 
-        self.state = self._board.get_state()
-
-        self.action_space = MultiDiscrete([7, 7, 7, 7])
+        self.action_space = action_space
 
 
     
@@ -101,17 +101,23 @@ class GrandMasterEnv(Env):
     def set_team_color(self, team_color):
         self._team_color = team_color
 
-    def step(self, action):
+    def step(self, piece, move, moveset, check):
         '''
-        Update board with current state values
         '''
-        _, wk_check, wk_ckm = self.MoveGen.GenerateLegalMoves(self._board.white_king, self._board)
-        _, bk_check, bk_ckm = self.MoveGen.GenerateLegalMoves(self._board.black_king, self._board)
-        self.board.update_board_state(wk_check, wk_ckm, bk_check, bk_ckm)
+        info = {'valid_move': False}
+        if not piece is None or piece.color is not self._team_color or move not in moveset:
+            info['valid_move'] = True
+            self._board.play_move(piece, move)
+        time.sleep(0.5)
+        state = self._board.get_state(self._team_color)
+        reward, done = self.get_currrent_reward(state['score'], piece, move, moveset, check)
+        
+        return state, reward, done, info
 
 
     def reset(self):
-        pass
+        if not self._board.is_reset():
+            self._board.reset_board()
 
     def get_currrent_reward(self, score, piece, move, moveset, check):
         done = False
@@ -125,7 +131,9 @@ class GrandMasterEnv(Env):
         if piece is None:
             reward = -25
             return reward, done
-        
+        if piece.color is not self._team_color:
+            reward = -25
+            return reward, done
         if move not in moveset:
             reward = -25
             return reward, done

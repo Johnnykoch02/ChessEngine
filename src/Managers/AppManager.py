@@ -1,9 +1,16 @@
 
 from collections import deque
-from ..Utils.imports import pygame, SQUARE_DIMENSIONS, BACKROUND_COLOR, APP_DIMENSIONS
+from ..Utils.imports import pygame, SQUARE_DIMENSIONS, BACKROUND_COLOR, APP_DIMENSIONS, os
+import threading
+import time
 
 game_screen = [None]
 drawables = []
+
+VERSION = 'GM-PPO-0.0.0'
+LOG_DIR = os.path.join(os.getcwd(), 'src','Managers','RL', 'Logs', VERSION)
+NAME = "GrandMaster_v_0_0_0"
+CHECKPOINT_DIR = os.path.join(os.getcwd(), 'src','Managers','RL', 'Checkpoints', NAME)
 
 project_path = ''
 
@@ -47,7 +54,7 @@ class AppManager:
         self.Running = True
 
 
-        from src.Utils.imports import Board, MoveGenerator 
+        from src.Utils.imports import Board, MoveGenerator
         self.Board = Board
         self.board = self.Board()
 
@@ -60,7 +67,8 @@ class AppManager:
         self.board.current_color = self.current_player.type
         # Start the App
         self.MoveGenerator = MoveGenerator
-        self.Run()
+        
+        self.draw_thread = threading.Thread(target=self.DrawCaller)
     
     def Run(self):
         i = 0
@@ -113,10 +121,29 @@ class AppManager:
                 if self.piece_selected:
                     self.board.remove_piece(self.piece_selected)
                     self.piece_selected.selected = True
-                    self.legal_moves = tuple(tuple([int(x[0]), int(x[1])]) for x in self.MoveGenerator.GenerateLegalMoves(self.piece_selected, self.board))
+                    pseudolegal, _, _ = self.MoveGenerator.GenerateLegalMoves(self.piece_selected, self.board)
+                    self.legal_moves = tuple(tuple([int(x[0]), int(x[1])]) for x in pseudolegal)
                     self.board.selected_squares = self.legal_moves
                     print(self.board.selected_squares)
+    
+    
+    def Train(self):
+        from src.Utils.imports import GrandMasterPPO, GrandMasterJudge, AgentPtr
+        global CHECKPOINT_DIR, LOG_DIR
+        judge = GrandMasterJudge(
+            AgentPtr(GrandMasterPPO()),
+            AgentPtr(GrandMasterPPO()),
+            CHECKPOINT_DIR, LOG_DIR     
+        )
+        
+        self.draw_thread.start()
+        judge.train_agents()
 
+    def DrawCaller(self):
+        while True:
+            self.Draw()
+            time.sleep(0.1)
+            
     def Draw(self):
         self.screen.fill(self.background_color)
         for drawable in drawables:

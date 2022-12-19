@@ -19,6 +19,7 @@ class Board:
         self.selected_squares = []
         self.current_state = START_POS
         self.pieces = self.init_board()
+        self.board_reset = True
 
 
         self.white_king = None
@@ -95,7 +96,9 @@ class Board:
                 self.black_king.piece = None
             self.remove_piece(pq)
             pq.destroy()
-        piece.square = move   
+        
+        piece.square = move
+        self.board_reset = False
          
         if piece.type == piece.Type.PAWN:
             if piece.square[0] == 0 and piece.color == piece.Color.BLACK or piece.square[0] == 7 and piece.color == piece.Color.WHITE:
@@ -152,7 +155,7 @@ class Board:
 
         return {
             'board_state': board_state,
-            'team_color': int(team_color) + 1,
+            'team_color': int(team_color),
             'score': score,
             'check': np.array([us, them])
         }
@@ -185,6 +188,9 @@ class Board:
             else:
                 return [win, self.wK_in_checkmate, self.bK_in_checkmate]
         return [False, False]
+    
+    def is_reset(self):
+        return self.board_reset
 
     def reset_board(self):
         for piece in self.pieces:
@@ -211,3 +217,4 @@ class Board:
                 else:
                     self.black_king = piece
         self.current_color = None
+        board_reset = True

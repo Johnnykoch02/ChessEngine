@@ -49,7 +49,7 @@ class Piece:
     
     def distance_from_queen(self):
         if self.color == Piece.Color.WHITE:
-            return (7 - self.square) / 7
+            return (7 - self.square[0]) / 7
         elif self.color == Piece.Color.BLACK:
             return self.square[0] / 7    
 
