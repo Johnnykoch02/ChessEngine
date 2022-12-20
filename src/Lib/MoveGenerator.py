@@ -1,5 +1,5 @@
 NSEW = 0
-DIAGANOL = 1
+DIAGONAL = 1
 PAWN_WHITE = 2
 PAWN_BLACK = 3
 HORSIE = 4
@@ -91,7 +91,7 @@ class MoveGenerator:
                 MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, s), board, s, debug) # South
                 MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, e), board, e, debug) # East
                 MoveGenerator.MoveInDirectionNorm(PseudoLegalMoves, piece, add_two_pos(initial_pos, w), board, w, debug) # West
-            if move_type == DIAGANOL:
+            if move_type == DIAGONAL:
                 ne = (1, -1)
                 se = (1, 1)
                 nw = (-1,-1)
@@ -195,7 +195,7 @@ class Move:
     def GetMoveSet(piece:'Piece'):
         MoveTypes = []
         if piece.type == Piece.Type.BISHOP or piece.type == Piece.Type.QUEEN:
-            MoveTypes.append(DIAGANOL)
+            MoveTypes.append(DIAGONAL)
         if piece.type == Piece.Type.QUEEN or piece.type == Piece.Type.ROOK:
             MoveTypes.append(NSEW)
         elif piece.type == Piece.Type.KNIGHT:
