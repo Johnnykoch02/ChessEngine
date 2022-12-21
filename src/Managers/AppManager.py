@@ -53,6 +53,8 @@ class AppManager:
         self.screen.fill(self.background_color)
         self.Running = True
 
+        self.mode = 'default'
+        self.judge = None
 
         from src.Utils.imports import Board, MoveGenerator
         self.Board = Board
@@ -69,30 +71,34 @@ class AppManager:
         self.MoveGenerator = MoveGenerator
         
         self.draw_thread = threading.Thread(target=self.DrawCaller)
+        self.judge_thread = None
+        self.draw_thread.daemon = True
     
     def Run(self):
         i = 0
         last_mouse_press = None
         while self.Running:
-            ## Top of Game Loop
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.Running = False
+                ## Top of Game Loop
+            if self.mode != 'train':
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self.Running = False
 
-            # Mouse Events
-            if i % 5 == 0:
-                i = 0
-                presses = pygame.mouse.get_pressed()
-                mouse_pos = pygame.mouse.get_pos()
-                if presses != last_mouse_press:
-                    self.mouse_events(mouse_pos, presses)
-                
-                last_mouse_press = presses   
-                if self.piece_selected:
-                    self.piece_selected.set_screen_pos(mouse_pos)
+                # Mouse Events
+                if i % 5 == 0:
+                    i = 0
+                    presses = pygame.mouse.get_pressed()
+                    mouse_pos = pygame.mouse.get_pos()
+                    if presses != last_mouse_press:
+                        self.mouse_events(mouse_pos, presses)
 
-            i+=1
-            self.Draw()
+                    last_mouse_press = presses   
+                    if self.piece_selected:
+                        self.piece_selected.set_screen_pos(mouse_pos)
+
+                i+=1
+                # time.sleep(0.2)
+                self.Draw()
 
     def mouse_events(self, mouse_pos, presses): 
         square_on = (int(mouse_pos[1]//SQUARE_DIMENSIONS[0]), int(mouse_pos[0]//SQUARE_DIMENSIONS[0])) # Mouse to Square
@@ -130,19 +136,25 @@ class AppManager:
     def Train(self):
         from src.Utils.imports import GrandMasterPPO, GrandMasterJudge, AgentPtr
         global CHECKPOINT_DIR, LOG_DIR
-        judge = GrandMasterJudge(
-            AgentPtr(GrandMasterPPO()),
-            AgentPtr(GrandMasterPPO()),
-            CHECKPOINT_DIR, LOG_DIR     
+        self.judge = GrandMasterJudge(
+            AgentPtr(GrandMasterPPO(tensorboard_log=LOG_DIR)),
+            AgentPtr(GrandMasterPPO(tensorboard_log=LOG_DIR)),
+            CHECKPOINT_DIR, LOG_DIR,
+            self.Draw     
         )
+        self.mode = 'train'
         
         self.draw_thread.start()
-        judge.train_agents()
+        self.judge_thread = threading.Thread(target=self.judge.train_agents)
+        # self.judge_thread.daemon = True
+        # self.judge_thread.start()
+        self.judge.train_agents()
+        self.Run()
 
     def DrawCaller(self):
         while True:
             self.Draw()
-            time.sleep(0.1)
+            time.sleep(0.2)
             
     def Draw(self):
         self.screen.fill(self.background_color)

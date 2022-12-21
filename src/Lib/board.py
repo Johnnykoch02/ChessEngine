@@ -13,6 +13,7 @@ class Board:
         self.get_piece_from_fen = get_piece_from_fen
         self.PieceClass = Piece
         self.pieces = []
+        self.is_virtual = virtual
         if virtual:
             return
         drawables.append(self)
@@ -87,6 +88,8 @@ class Board:
         self.pieces.append(piece)
     
     def play_move(self, piece, move):
+        if not self.is_virtual:
+            print(f'{piece.color} is Playing {str(piece.type)} to {move}.')
         self.remove_piece(piece)
         pq = self.get_square(move)
         if pq is not None:
@@ -136,10 +139,10 @@ class Board:
             game_screen[0].blit(s, (pos[1]*width,pos[0]*height))    # (0,0) are the top-left coordinates
     
     def get_state(self, team_color):
-        board_state = np.zeros(shape=(8,8,2))
+        board_state = np.zeros(shape=(2,8,8))
         for piece in self.pieces:
-            board_state[piece.square[0], piece.square[1], 0] = int(piece.color) + 1
-            board_state[piece.square[0], piece.square[1], 1] = int(piece.type) + 1
+            board_state[0, piece.square[0], piece.square[1]] = int(piece.color) + 1
+            board_state[1, piece.square[0], piece.square[1]] = int(piece.type) + 1
         white_score = self.get_white_score()
         black_score = self.get_black_score()
         us = False
@@ -154,10 +157,10 @@ class Board:
         score = white_score - black_score if team_color == self.PieceClass.Color.WHITE else black_score - white_score
 
         return {
-            'board_state': board_state,
-            'team_color': int(team_color),
-            'score': score,
-            'check': np.array([us, them])
+            'board_state':   np.expand_dims(board_state, axis = 0),
+            'team_color':  np.expand_dims([int(team_color)], axis = 0),
+            'score':  np.expand_dims([score], axis = 0),
+            'check': np.expand_dims([us, them], axis = 0),
         }
 
     def update_board_state(self, white_king_check, white_king_checkmate, black_king_check, black_king_checkmate):
@@ -217,4 +220,4 @@ class Board:
                 else:
                     self.black_king = piece
         self.current_color = None
-        board_reset = True
+        self.board_reset = True
