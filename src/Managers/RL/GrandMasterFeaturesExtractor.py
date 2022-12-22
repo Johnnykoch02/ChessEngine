@@ -17,24 +17,26 @@ class GrandMasterFeaturesExtractor(BaseFeaturesExtractor):
         for key, subspace in observation_space.spaces.items():
                 if key == 'board_state':
                     extractors[key] = nn.Sequential(
-                        # nn.BatchNorm2d(subspace.shape),
+                        nn.BatchNorm2d(2),
                         nn.Conv2d(in_channels=2, out_channels=16, kernel_size=(3,3), padding=1),
                         nn.LeakyReLU(),
                         nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(3,3), padding=1),
                         nn.LeakyReLU(),
-                        nn.Conv2d(in_channels=32, out_channels=128, kernel_size=(3,3), padding=1),
+                        nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3,3), padding=1),
                         nn.LeakyReLU(),
-                        nn.MaxPool2d(kernel_size=2, stride=2),
+                        # nn.AvgPool2d(kernel_size=2, stride=2),
                         nn.Flatten(),
+                        nn.Linear(in_features=64 * 64, out_features=512),
+                        nn.LeakyReLU()
                         )
-                    total_concat_size += 128 * 4 * 4
+                    total_concat_size += 512
                 elif key == 'team_color': 
                     extractors[key] = nn.Sequential(
                         nn.Linear(1, 4),
-                        nn.LeakyReLU(),
+                        nn.LeakyReLU(),                         
                         nn.Linear(4, 16),
                         nn.LeakyReLU(),
-                    )
+                    )                                                                                                         
                     total_concat_size += 16
                     ''''''
                 elif key == 'score':
@@ -52,6 +54,15 @@ class GrandMasterFeaturesExtractor(BaseFeaturesExtractor):
                         nn.LeakyReLU(),
                     )
                     total_concat_size += 16
+                    
+                elif key == 'random_state':
+                    extractors[key] = nn.Sequential(
+                        nn.Linear(10, 128),
+                        nn.Sigmoid(),
+                        nn.Linear(128,128),
+                        nn.Sigmoid()
+                    )
+                    total_concat_size +=128
    
         self.extractors = nn.ModuleDict(extractors)
         self._features_dim = total_concat_size

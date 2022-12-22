@@ -82,6 +82,8 @@ class Board:
         for p in self.pieces:
             if piece == p:
                 self.pieces.remove(piece)
+                if not self.is_virtual:
+                    print('Removing from Board:', piece)
                 break
             
     def place_piece(self, piece):
@@ -161,6 +163,7 @@ class Board:
             'team_color':  np.expand_dims([int(team_color)], axis = 0),
             'score':  np.expand_dims([score], axis = 0),
             'check': np.expand_dims([us, them], axis = 0),
+            'random_state': np.expand_dims(np.random.random_sample(size=10), axis=0)
         }
 
     def update_board_state(self, white_king_check, white_king_checkmate, black_king_check, black_king_checkmate):

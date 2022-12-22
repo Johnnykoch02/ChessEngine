@@ -67,10 +67,11 @@ observation_space = {
             'board_state': Box(low=0, high=6, shape=(2,8,8), dtype=np.float32),
             'team_color': Box(low=0, high=1, shape=(1,),dtype=np.float32),
             'score': Box(low=-250, high=250, shape=(1,),dtype=np.float32),
-            'check': Box(low=0, high=1, shape=(2,), dtype=np.float32)
+            'check': Box(low=0, high=1, shape=(2,), dtype=np.float32),
+            'random_state': Box(low=0, high=1, shape=(10,),dtype=np.float32)
         }
 
-action_space = MultiDiscrete([7, 7, 7, 7])
+action_space = MultiDiscrete([64, 64])
 
 
 class GrandMasterEnv(Env):
@@ -132,23 +133,23 @@ class GrandMasterEnv(Env):
         winner = self._board.get_winner(self._team_color)
         if winner[0]:
             done = True
-            reward= 250* int(winner[1]) - 250 * int(winner[2]) 
+            reward= 1000* int(winner[1]) - 1000 * int(winner[2]) 
             return reward, done
 
         if piece is None:
-            reward = -25
+            reward = -50
             return reward, done
         if piece.color is not self._team_color:
-            reward = -25
+            reward = -10
             return reward, done
         if move not in moveset:
-            reward = -25
+            reward = -5
             return reward, done
         
         '''  Valid Move     US           Them  '''
-        reward+= 1 + 50*check[0,1] - 50*check[0,0]        
+        reward+= 10 + 50*check[0,1] - 50*check[0,0] + 2.5 * score     
         
-        return reward + 1.8 * score, done
+        return reward, done
         
         
 

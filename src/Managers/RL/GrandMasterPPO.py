@@ -34,9 +34,9 @@ class GrandMasterPPO(PPO):
             - 
     '''
     
-    def __init__(self, env=GrandMasterEnv(), learning_rate=5e-4, gamma=0.99, lam=0.95, clip_range=0.2, clip_range_vf=None,
-                 n_steps=64, nminibatches=1, ent_coef=0.0, vf_coef=0.5, max_grad_norm=0.5,
-                 adaptive_kl_penalty=2.0, t_total=-1, policy_kwargs=dict(features_extractor_class=GrandMasterFeaturesExtractor,net_arch=[512, 256, dict(pi=[128,64], vf=[128,64])]), tensorboard_log=None,
+    def __init__(self, env=GrandMasterEnv(), learning_rate=5e-3, gamma=0.99, lam=0.95, clip_range=0.2, clip_range_vf=None,
+                 n_steps=64, nminibatches=1, ent_coef=0.01, vf_coef=0.5, max_grad_norm=0.5,
+                 adaptive_kl_penalty=2.0, t_total=-1, policy_kwargs=dict(features_extractor_class=GrandMasterFeaturesExtractor,net_arch=[10120, 2160, dict(pi=[512,256,64], vf=[512,256,64])]), tensorboard_log=None,
                  create_eval_env=False, seed=None, reward_scale=1.0, **kwargs):
         super(GrandMasterPPO, self).__init__(env=env, policy=str('MultiInputPolicy'),verbose = 1,policy_kwargs= policy_kwargs, learning_rate=0.01, tensorboard_log='.')
 
@@ -60,8 +60,8 @@ class GrandMasterJudge:
         logger = configure(log_dir, ["stdout", "csv", "tensorboard"])
         self.agent1.model.set_logger(logger)
         self.agent2.model.set_logger(logger)
-        self.agent1.model.rollout_buffer.buffer_size = 64
-        self.agent2.model.rollout_buffer.buffer_size = 64
+        self.agent1.model.rollout_buffer.buffer_size = 512
+        self.agent2.model.rollout_buffer.buffer_size = 512
         
         from src.Utils.imports import Board, MoveGenerator, Piece
         self.Board = Board
@@ -90,7 +90,7 @@ class GrandMasterJudge:
                 with th.no_grad():
                 # Compute value for the last timestep
                     values = policy.predict_values(obs_as_tensor(self.board.get_state(self.current_agent.next.team), self.device))
-                    rollout_buffer.compute_returns_and_advantage(last_values=values, dones=np.array([0]))
+                    rollout_buffer.compute_returns_and_advantage(last_values=values, dones=np.array([1]))
                 self.current_agent.next.model.train()
                 rollout_buffer.reset()
 
@@ -170,8 +170,8 @@ class GrandMasterJudge:
                 clipped_actions = np.clip(actions, self.current_agent.model.action_space.low, self.current_agent.model.action_space.high)
             
 
-            piece = self.board.get_square((clipped_actions[0,0], clipped_actions[0,1]))
-            move = (clipped_actions[0,2], clipped_actions[0,3])
+            piece = self.board.get_square((clipped_actions[0,0]//8, clipped_actions[0,0]%8))
+            move = (clipped_actions[0,1]//8, clipped_actions[0,1]%8)
             moveset, _, _ = self.MoveGenerator.GenerateLegalMoves(piece, self.board)
 
             _, rewards, dones, infos = self.current_agent.env.step(piece, move, moveset, obs['check'])

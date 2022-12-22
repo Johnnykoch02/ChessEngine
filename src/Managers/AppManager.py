@@ -2,6 +2,8 @@
 from collections import deque
 from ..Utils.imports import pygame, SQUARE_DIMENSIONS, BACKROUND_COLOR, APP_DIMENSIONS, os
 import threading
+import random
+import numpy as np
 import time
 
 game_screen = [None]
@@ -30,12 +32,14 @@ class spritesheet:
         return image
 
 class Player:
-    def __init__(self, type:'str'):
+    def __init__(self, type:'str', piece_fn):
         from src.Utils.imports import Piece
         self.PieceTypes = Piece.Color
         self.type = self.PieceTypes.BLACK if type == 'black' else self.PieceTypes.WHITE
         self.move_stack = deque()
         self.next = None
+        self.pieces = piece_fn
+        
 
 class AppManager:
     def __init__(self, path):
@@ -59,27 +63,30 @@ class AppManager:
         from src.Utils.imports import Board, MoveGenerator
         self.Board = Board
         self.board = self.Board()
-
-        self.current_player = Player('black')
-        self.current_player.next = Player('white')
+        self.black_player = Player('black', self.board.get_black_pieces)
+        self.white_player = Player('white', self.board.get_white_pieces)
+        self.current_player = self.black_player
+        self.current_player.next = self.white_player
         self.current_player.next.next = self.current_player
         self.piece_selected = None
         self.legal_moves = None
+
+        self.DataCollector = DataCollector(self.current_player, self.board)
 
         self.board.current_color = self.current_player.type
         # Start the App
         self.MoveGenerator = MoveGenerator
         
-        self.draw_thread = threading.Thread(target=self.DrawCaller)
+        # self.draw_thread = threading.Thread(target=self.DrawCaller)
         self.judge_thread = None
-        self.draw_thread.daemon = True
+        # self.draw_thread.daemon = True
     
     def Run(self):
         i = 0
         last_mouse_press = None
         while self.Running:
                 ## Top of Game Loop
-            if self.mode != 'train':
+            if self.mode == 'default':
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         self.Running = False
@@ -97,8 +104,15 @@ class AppManager:
                         self.piece_selected.set_screen_pos(mouse_pos)
 
                 i+=1
+            
+            elif self.mode == 'data_collection':
+                self.DataCollection()
+            if self.DataCollector.num_records == 10000:
+                self.DataCollector.save()           
+                exit()
                 # time.sleep(0.2)
-                self.Draw()
+            self.Draw()
+            
 
     def mouse_events(self, mouse_pos, presses): 
         square_on = (int(mouse_pos[1]//SQUARE_DIMENSIONS[0]), int(mouse_pos[0]//SQUARE_DIMENSIONS[0])) # Mouse to Square
@@ -150,6 +164,42 @@ class AppManager:
         # self.judge_thread.start()
         self.judge.train_agents()
         self.Run()
+    
+    def set_DataCollection(self):
+        self.mode = 'data_collection'
+        # self.draw_thread.start()
+        
+    def DataCollection(self):
+        if any(self.board.get_state(self.current_player.type)['check'][0]):
+            self.board.reset_board()
+            print('Resetting...')
+        _, wk_check, wk_ckm = self.MoveGenerator.GenerateLegalMoves(self.board.white_king, self.board)
+        _, bk_check, bk_ckm = self.MoveGenerator.GenerateLegalMoves(self.board.black_king, self.board)
+        self.board.update_board_state(wk_check, wk_ckm, bk_check, bk_ckm)
+        
+        observation = self.board.get_state(self.current_player.type)
+        piece = None
+        move = None
+        if len(self.current_player.pieces()) < 4:
+            self.board.reset_board()
+            print('Resetting...')
+        while True:
+            piece = random.choice(self.current_player.pieces())
+            moves = self.MoveGenerator.GenerateLegalMoves(piece, self.board)[0]
+            if moves:
+                move = random.choice(moves)
+                break
+            self.Draw()
+            time.sleep(0.1)
+        self.board.play_move(piece, move)            
+        self.current_player = self.current_player.next
+        
+        action = [piece.square[0]*8+piece.square[1], move[0]*8+move[1]]
+        
+        self.DataCollector.collect(observation, action)
+        self.DataCollector.num_records+=1
+        time.sleep(0.1)
+            
 
     def DrawCaller(self):
         while True:
@@ -161,6 +211,56 @@ class AppManager:
         for drawable in drawables:
             drawable.Draw()
         pygame.display.flip()
+
+class DataCollector():
+    
+    def __init__(self, player, board, save_dir=os.path.join(os.getcwd(), 'src','Managers', 'RL', 'PretrainData')):
+        self.current_player = player
+        self.board = board
+        self.observations = []
+        self.actions = []
+        self.save_dir = save_dir
+        self.num_records = 0
+        
+    def collect(self, observation, action, ):
+        self.observations.append(observation)
+        self.actions.append(action)
+    
+    def save(self):
+        dir_len = len(os.listdir(self.save_dir))
+        for i in range(dir_len, dir_len+self.num_records):
+            # files to be saved in index 
+            # save files in index directory 
+            data_path = os.path.join(self.save_dir, i)
+            if not os.path.exists(data_path):
+                os.makedirs(data_path)
+
+            obs = self.observations[i]
+            np.savez(os.path.join(data_path, 'observation.npz'), 
+                                    board_state=obs['board_state'], team_color=obs['team_color'], 
+                                    check=obs['check'], random_state=obs['random_state'])
+            action = self.actions[i]
+            np.save(os.path.join(data_path, 'action.npz'), action, allow_pickle=True)
+    
+    def load(self, ):
+        observations = []
+        actions = []
+        for i in range(len(os.listdir(self.save_dir))):
+            # files to be loaded from index 
+            data_path = os.path.join(save_dir, i)
+            obs_data = np.load(os.path.join(data_path, 'observation.npz'))
+            obs = {
+                'board_state': obs_data['board_state'], 
+                'team_color': obs_data['team_color'], 
+                'check': obs_data['check'], 
+                'random_state': obs_data['random_state']
+            }
+            observations.append(obs)
+
+            action = np.load(os.path.join(data_path, 'action.npz'), allow_pickle=True)
+            actions.append(action)
+
+            return np.array(observations), np.array(actions)
 
 
 

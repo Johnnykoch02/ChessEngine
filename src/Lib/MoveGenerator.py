@@ -82,7 +82,7 @@ class MoveGenerator:
                 MoveGenerator.GetPseudoLegalMoves(PseudoLegalMoves, Move.GetMoveSet(vPiece), vPiece, virtual_board)
                 for move in PseudoLegalMoves:
                     if virtual_board.white_king and move == virtual_board.white_king.square:
-                        print('King in Check')
+                        # print('King in Check')
                         return True
 
         elif current_color == Piece.Color.BLACK:
@@ -95,7 +95,7 @@ class MoveGenerator:
                 MoveGenerator.GetPseudoLegalMoves(PseudoLegalMoves, Move.GetMoveSet(vPiece), vPiece, virtual_board)
                 for move in PseudoLegalMoves:
                     if virtual_board.black_king and move == virtual_board.black_king.square:
-                        print('King in Check')
+                        # print('King in Check')
                         return True
                         
         return False
