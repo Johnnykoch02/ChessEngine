@@ -3,3 +3,5 @@
 *.pyc
 *.csv
 */Logs/
+*.npy
+*.npz

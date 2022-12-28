@@ -107,9 +107,9 @@ class AppManager:
             
             elif self.mode == 'data_collection':
                 self.DataCollection()
-            if self.DataCollector.num_records == 10000:
-                self.DataCollector.save()           
-                exit()
+                i+=1
+                
+
                 # time.sleep(0.2)
             self.Draw()
             
@@ -148,17 +148,24 @@ class AppManager:
     
     
     def Train(self):
-        from src.Utils.imports import GrandMasterPPO, GrandMasterJudge, AgentPtr
+        from src.Utils.imports import GrandMasterPPO, GrandMasterJudge, AgentPtr, GrandMasterEnv
         global CHECKPOINT_DIR, LOG_DIR
+        path = os.path.join(os.getcwd(), 'src', 'Managers','RL', 'PretrainedModel', 'PretrainedModel.pkl')
         self.judge = GrandMasterJudge(
-            AgentPtr(GrandMasterPPO(tensorboard_log=LOG_DIR)),
-            AgentPtr(GrandMasterPPO(tensorboard_log=LOG_DIR)),
+            AgentPtr(GrandMasterPPO.load(path, env=GrandMasterEnv())),
+            AgentPtr(GrandMasterPPO.load(path, env=GrandMasterEnv())),
             CHECKPOINT_DIR, LOG_DIR,
             self.Draw     
         )
+        # self.judge = GrandMasterJudge(
+        #     AgentPtr(GrandMasterPPO()),
+        #     AgentPtr(GrandMasterPPO()),
+        #     CHECKPOINT_DIR, LOG_DIR,
+        #     self.Draw     
+        # )
         self.mode = 'train'
         
-        self.draw_thread.start()
+        # self.draw_thread.start()
         self.judge_thread = threading.Thread(target=self.judge.train_agents)
         # self.judge_thread.daemon = True
         # self.judge_thread.start()
@@ -168,6 +175,9 @@ class AppManager:
     def set_DataCollection(self):
         self.mode = 'data_collection'
         # self.draw_thread.start()
+    
+    def set_PreTrain(self):
+        self.DataCollector.pretrain()
         
     def DataCollection(self):
         if any(self.board.get_state(self.current_player.type)['check'][0]):
@@ -197,7 +207,6 @@ class AppManager:
         action = [piece.square[0]*8+piece.square[1], move[0]*8+move[1]]
         
         self.DataCollector.collect(observation, action)
-        self.DataCollector.num_records+=1
         time.sleep(0.1)
             
 
@@ -225,43 +234,63 @@ class DataCollector():
     def collect(self, observation, action, ):
         self.observations.append(observation)
         self.actions.append(action)
+        self.num_records += 1
+        if self.num_records % 10 == 0:
+            self.save()           
+            self.purge()
     
     def save(self):
+        print('Saving to {}'.format(self.save_dir))
         dir_len = len(os.listdir(self.save_dir))
-        for i in range(dir_len, dir_len+self.num_records):
+        for i in range(self.num_records):
             # files to be saved in index 
             # save files in index directory 
-            data_path = os.path.join(self.save_dir, i)
+            data_path = os.path.join(self.save_dir, str(i+dir_len))
             if not os.path.exists(data_path):
-                os.makedirs(data_path)
+                os.mkdir(data_path)
 
             obs = self.observations[i]
             np.savez(os.path.join(data_path, 'observation.npz'), 
-                                    board_state=obs['board_state'], team_color=obs['team_color'], 
+                                    board_state=obs['board_state'], team_color=obs['team_color'], score=obs['score'],
                                     check=obs['check'], random_state=obs['random_state'])
             action = self.actions[i]
-            np.save(os.path.join(data_path, 'action.npz'), action, allow_pickle=True)
+            np.save(os.path.join(data_path, 'action'), action, allow_pickle=True)
+    
+    def purge(self):
+        self.observations = []
+        self.actions = []
+        self.num_records = 0
     
     def load(self, ):
         observations = []
         actions = []
-        for i in range(len(os.listdir(self.save_dir))):
+        dir_len = len(os.listdir(self.save_dir))
+        for i in range(dir_len):
             # files to be loaded from index 
-            data_path = os.path.join(save_dir, i)
+            data_path = os.path.join(self.save_dir, str(i))
             obs_data = np.load(os.path.join(data_path, 'observation.npz'))
             obs = {
-                'board_state': obs_data['board_state'], 
-                'team_color': obs_data['team_color'], 
-                'check': obs_data['check'], 
-                'random_state': obs_data['random_state']
+                'board_state': np.squeeze(obs_data['board_state'], axis=0), 
+                'team_color': np.squeeze(obs_data['team_color'], axis=0), 
+                'check': np.squeeze(obs_data['check'], axis=0),
+                'score': np.squeeze(obs_data['score'], axis=0),
+                'random_state': np.squeeze(obs_data['random_state'], axis=0)
             }
             observations.append(obs)
 
-            action = np.load(os.path.join(data_path, 'action.npz'), allow_pickle=True)
+            action = np.load(os.path.join(data_path, 'action.npy'), allow_pickle=True)
             actions.append(action)
 
-            return np.array(observations), np.array(actions)
+        return np.array(observations), np.array(actions)
 
+    def pretrain(self, batch_size=2048):
+        from src.Utils.imports import GrandMasterPPO, pretrain_agent
+        model = GrandMasterPPO()
+        observations, actions = self.load()
+        pretrain_agent(model, observations, actions, batch_size, epochs=25, test_batch_size=batch_size//8,no_cuda=False)
+        model.save(os.path.join(os.getcwd(), 'src', 'Managers', 'PretrainedModel', 'PretrainedModel.pkl'))
+
+        
 
 
 # def mouse_events(self, mouse_pos, presses): 

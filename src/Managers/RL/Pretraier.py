@@ -12,33 +12,36 @@ import matplotlib.pyplot as plt
 from gym import spaces
 from math import exp
 from stable_baselines3 import PPO
+from stable_baselines3.a2c import A2C
+
 # from custom_network import ppo_model, env
 from gym.spaces import Box
 
 class ExpertDataSet(Dataset):
-    def __init__(self, expert_observations, expert_actions):
-        self.observations = expert_observations
-        self.actions = expert_actions
-        self.keys = list(expert_observations.keys())
+    def __init__(self, observations, actions):
+        self.observations = observations
+        self.actions = actions
+        self.keys = ['board_state', 'team_color', 'score', 'check', 'random_state']
+        print(self.observations.shape)
         
     def __getitem__(self, index):
-        return ({key: self.observations[key][index] for key in self.keys}, self.actions[index])
+        return ({key: self.observations[index][key] for key in self.keys}, self.actions[index])
 
     def __len__(self):
-        return len(self.observations[self.keys[0]])
+        return len(self.observations)
 
-with GzipFile('formatted_actions_single.npy.gz', 'r') as f:
-    expert_actions = np.load(f, allow_pickle = True)
+# with GzipFile('formatted_actions_single.npy.gz', 'r') as f:
+#     expert_actions = np.load(f, allow_pickle = True)
 
-    expert_actions = expert_actions[:, [1,2,3]]
-
-
-with GzipFile('formatted_observations_single.npy.gz', 'r') as f:
-    expert_observations = np.load(f, allow_pickle = True)
-    print(x)
+#     expert_actions = expert_actions[:, [1,2,3]]
 
 
-expert_observations = {
+# with GzipFile('formatted_observations_single.npy.gz', 'r') as f:
+#     expert_observations = np.load(f, allow_pickle = True)
+#     print(x)
+
+
+# expert_observations = {
             # 'hand_config': expert_observations[:, 2],
             # 'hand_torque': expert_observations[:, 7],
             # 'finger_1_tactile': expert_observations[:, 4],
@@ -46,7 +49,7 @@ expert_observations = {
             # 'finger_3_tactile': expert_observations[:, 6],
             # 'ball_count': expert_observations[:, 0],
             # 'ball_location': expert_observations[:, 1]  
-            }
+            # }
 
 # distribution = {finger: {action:0 for action in range(3)} for finger in range(1,4)}
 # for action in expert_actions:
@@ -58,18 +61,18 @@ expert_observations = {
 # print(distribution)
 
 
-expert_dataset = ExpertDataSet(expert_observations, expert_actions)
+# expert_dataset = ExpertDataSet(expert_observations, expert_actions)
 
-train_size = int(0.8 * len(expert_dataset))
+# train_size = int(0.8 * len(expert_dataset))
 
-test_size = len(expert_dataset) - train_size
+# test_size = len(expert_dataset) - train_size
 
-train_expert_dataset, test_expert_dataset = random_split(
-    expert_dataset, [train_size, test_size]
-)
+# train_expert_dataset, test_expert_dataset = random_split(
+#     expert_dataset, [train_size, test_size]
+# )
 
-print("test_expert_dataset: ", len(test_expert_dataset))
-print("train_expert_dataset: ", len(train_expert_dataset))
+# print("test_expert_dataset: ", len(test_expert_dataset))
+# print("train_expert_dataset: ", len(train_expert_dataset))
 
 # for i, j in test_expert_dataset:
 #   for k, v in i.items():
@@ -103,15 +106,28 @@ loss_series = []
 
 def pretrain_agent(
     student,
+    expert_observations,
+    expert_actions,
     batch_size=128,
     epochs=1000,
     scheduler_gamma=0.7,
-    learning_rate=1.0,
+    learning_rate=0.003,
     log_interval=100,
     no_cuda=True,
     seed=1,
     test_batch_size=128,
 ):
+    expert_dataset = ExpertDataSet(expert_observations, expert_actions)
+
+    train_size = int(0.8 * len(expert_dataset))
+
+    test_size = len(expert_dataset) - train_size
+
+    train_expert_dataset, test_expert_dataset = random_split(
+     expert_dataset, [train_size, test_size]
+    )
+    env = student.get_env()
+
     use_cuda = not no_cuda and th.cuda.is_available()
     # use_cuda = False
     th.manual_seed(seed)
@@ -159,12 +175,15 @@ def pretrain_agent(
               action_prediction = [i.probs for i in dist.distribution]
               # print(action_prediction)
               target = target.long()
+            loss = criterion(action_prediction[0], target[:, 0])
+            for i in range(1, len(action_prediction)):
+              loss+= criterion(action_prediction[i], target[:, i])
 
-            loss1 = criterion(action_prediction[0], target[:, 0])
-            loss2 = criterion(action_prediction[1], target[:, 1])
-            loss3 = criterion(action_prediction[2], target[:, 2])
+            # loss1 = criterion(action_prediction[0], target[:, 0])
+            # loss2 = criterion(action_prediction[1], target[:, 1])
+            # loss3 = criterion(action_prediction[2], target[:, 2])
 
-            loss = loss1 + loss2 + loss3
+            # loss = loss1 + loss2 + loss3
 
             loss.backward()
             optimizer.step()
@@ -202,11 +221,9 @@ def pretrain_agent(
                   action_prediction = [i.probs for i in dist.distribution]
                   target = target.long()
 
-                loss1 = criterion(action_prediction[0], target[:, 0])
-                loss2 = criterion(action_prediction[1], target[:, 1])
-                loss3 = criterion(action_prediction[2], target[:, 2])
-
-                test_loss = loss1 + loss2 + loss3
+                test_loss = criterion(action_prediction[0], target[:, 0])
+                for i in range(1, len(action_prediction)):
+                    test_loss+= criterion(action_prediction[i], target[:, i])
 
         print(f"Test set: Average loss: {test_loss}")
 
@@ -231,23 +248,17 @@ def pretrain_agent(
         test(model, device, test_loader)
         scheduler.step()
 
-    # Implant the trained policy network back into the RL student agent
-    ppo_model.policy = model
 
 
-pretrain_agent(
-    ppo_model,
-    epochs=1000,
-    scheduler_gamma=0.7,
-    learning_rate= 3e-4,
-    log_interval=100,
-    no_cuda=False,
-    seed=1,
-    batch_size=128,
-    test_batch_size=128,
-)
+# pretrain_agent(
+#     ppo_model,
+#     epochs=1000,
+#     scheduler_gamma=0.7,
+#     learning_rate= 3e-4,
+#     log_interval=100,
+#     no_cuda=False,
+#     seed=1,
+#     batch_size=128,
+#     test_batch_size=128,
+# )
 
-ppo_model.save("ppo_model_single")
-
-# plt.plot(list(range(len(loss_series))), loss_series)
-# plt.savefig('loss.jpg')

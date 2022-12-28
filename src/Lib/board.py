@@ -110,6 +110,7 @@ class Board:
                 piece.type = piece.Type.QUEEN
                 
         self.place_piece(piece)
+            
     
     def get_black_pieces(self):
         black_pieces = []

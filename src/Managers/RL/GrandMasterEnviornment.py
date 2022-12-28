@@ -137,13 +137,15 @@ class GrandMasterEnv(Env):
             return reward, done
 
         if piece is None:
-            reward = -50
+            reward = -1000
             return reward, done
         if piece.color is not self._team_color:
-            reward = -10
+            print('Picked wrong team')
+            reward = -500
             return reward, done
         if move not in moveset:
-            reward = -5
+            print('Move not in moveset')
+            reward = -450
             return reward, done
         
         '''  Valid Move     US           Them  '''

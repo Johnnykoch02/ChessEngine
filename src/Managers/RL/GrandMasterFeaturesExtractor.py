@@ -77,3 +77,42 @@ class GrandMasterFeaturesExtractor(BaseFeaturesExtractor):
             encoded_tensor_list.append(extractor(observations[key]))
     
         return th.cat(encoded_tensor_list, dim=1)
+    
+    def get_feature_dim(self):
+        return self._features_dim
+    
+class GrandMasterNetwork(nn.Module):
+    def __init__(self, lr, ):
+        super(GrandMasterNetwork, self).__init__()
+        from src.Utils.imports import observation_space, action_space
+        self.lr = lr
+        self.observation_space = observation_space
+        self.features_extractor =GrandMasterFeaturesExtractor(observation_space=self.observation_space)
+        self.action_space = action_space
+        self.encoding_layers = nn.Sequential(
+            nn.Linear(self.features_extractor.get_feature_dim(), 1864),
+            nn.LeakyReLU(),
+            nn.Linear(1864, 512),
+            nn.LeakyReLU(),
+            nn.Linear(512, 216),
+            nn.LeakyReLU(),
+        )
+        
+        self.piece_layers = nn.Sequential(
+            nn.Linear(216, 128),
+            nn.LeakyReLU(),
+            nn.Linear(128, 64),
+            nn.Softmax()
+        )
+        
+        self.move_layers = nn.Sequential(
+            nn.Linear(216+64, 128),
+            nn.LeakyReLU(),
+            nn.Linear(128, 64),
+            nn.Softmax()
+        )
+        
+        
+        
+        
+        

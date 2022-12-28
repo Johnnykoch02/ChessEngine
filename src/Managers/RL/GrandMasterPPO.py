@@ -5,6 +5,7 @@ from stable_baselines3.ppo import MlpPolicy, MultiInputPolicy
 import os
 import sys
 import time
+import random
 
 import gym
 
@@ -31,14 +32,14 @@ class GrandMasterPPO(PPO):
             - Model Controllers: two models, 1 for each color, Model Controller will need to implement two GrandMasterPPOs and
             train after N number of steps, similar to how their algorithms already function. 
             - These Models are going to share a common enviornment
-            - 
+            - (policy, env, learning_rate=0.0003, n_steps=2048, batch_size=64, n_epochs=10, gamma=0.99, gae_lambda=0.95, 
+            clip_range=0.2, clip_range_vf=None, normalize_advantage=True, ent_coef=0.0, vf_coef=0.5, max_grad_norm=0.5, use_sde=False, 
+            sde_sample_freq=-1, target_kl=None, tensorboard_log=None, policy_kwargs=None, verbose=0, seed=None, device='auto', _init_setup_model=True)
     '''
     
-    def __init__(self, env=GrandMasterEnv(), learning_rate=5e-3, gamma=0.99, lam=0.95, clip_range=0.2, clip_range_vf=None,
-                 n_steps=64, nminibatches=1, ent_coef=0.01, vf_coef=0.5, max_grad_norm=0.5,
-                 adaptive_kl_penalty=2.0, t_total=-1, policy_kwargs=dict(features_extractor_class=GrandMasterFeaturesExtractor,net_arch=[10120, 2160, dict(pi=[512,256,64], vf=[512,256,64])]), tensorboard_log=None,
+    def __init__(self, env=GrandMasterEnv(), n_steps=512, nminibatches=6, ent_coef=0.05,  policy_kwargs=dict(features_extractor_class=GrandMasterFeaturesExtractor,net_arch=[1200, 860, 512, dict(pi=[256,64], vf=[256,64])]), tensorboard_log=None,
                  create_eval_env=False, seed=None, reward_scale=1.0, **kwargs):
-        super(GrandMasterPPO, self).__init__(env=env, policy=str('MultiInputPolicy'),verbose = 1,policy_kwargs= policy_kwargs, learning_rate=0.01, tensorboard_log='.')
+        super(GrandMasterPPO, self).__init__(env=env, policy=str('MultiInputPolicy'),ent_coef=ent_coef, n_steps=n_steps, batch_size=128,verbose = 1,policy_kwargs= policy_kwargs, learning_rate=0.005, tensorboard_log='.')
 
 
 class AgentPtr:
@@ -60,9 +61,8 @@ class GrandMasterJudge:
         logger = configure(log_dir, ["stdout", "csv", "tensorboard"])
         self.agent1.model.set_logger(logger)
         self.agent2.model.set_logger(logger)
-        self.agent1.model.rollout_buffer.buffer_size = 512
-        self.agent2.model.rollout_buffer.buffer_size = 512
-        
+        self.agent1.model.rollout_buffer.buffer_size = 1024
+        self.agent2.model.rollout_buffer.buffer_size = 1024      
         from src.Utils.imports import Board, MoveGenerator, Piece
         self.Board = Board
         self.Piece = Piece
@@ -81,6 +81,19 @@ class GrandMasterJudge:
         
         self.agent1.env = GrandMasterEnv(board=self.board, team_color=self.agent1.team)
         self.agent2.env = GrandMasterEnv(board=self.board, team_color=self.agent2.team)
+    
+    def make_random_move(self, color):
+        pieces = self.board.get_white_pieces() if color == self.Piece.Color.WHITE else self.board.get_black_pieces()
+        piece = None
+        move = None
+        while True:
+            piece = np.random.choice(pieces)
+            moves = self.MoveGenerator.GenerateLegalMoves(piece, self.board)[0]
+            if moves:
+                move = random.choice(moves)
+                break
+        self.board.play_move(piece, move)
+        
         
     def _perform_losing_agents_pass_through(self):
         rollout_buffer = self.current_agent.next.model.rollout_buffer
@@ -131,11 +144,16 @@ class GrandMasterJudge:
         _, wk_check, wk_ckm = self.MoveGenerator.GenerateLegalMoves(self.board.white_king, self.board)
         _, bk_check, bk_ckm = self.MoveGenerator.GenerateLegalMoves(self.board.black_king, self.board)
         self.board.update_board_state(wk_check, wk_ckm, bk_check, bk_ckm)
-        
+        num_move_attempts = 0
         while True:
+            if num_move_attempts > 99:
+                print('Making Random Move')
+                self.make_random_move(self.current_agent.team)
+                break
             # self.draw_to_screen()
             if rollout_buffer.full:
                 with th.no_grad():
+                    policy.set_training_mode(True)
                 # Compute value for the last timestep
                     values = policy.predict_values(obs_as_tensor(self.board.get_state(self.current_agent.team), self.current_agent.model.device))
                     rollout_buffer.compute_returns_and_advantage(last_values=values, dones=np.array([0]))
@@ -169,7 +187,7 @@ class GrandMasterJudge:
             if isinstance(self.current_agent.model.action_space, gym.spaces.Box):
                 clipped_actions = np.clip(actions, self.current_agent.model.action_space.low, self.current_agent.model.action_space.high)
             
-
+            print('Actions: ', clipped_actions)
             piece = self.board.get_square((clipped_actions[0,0]//8, clipped_actions[0,0]%8))
             move = (clipped_actions[0,1]//8, clipped_actions[0,1]%8)
             moveset, _, _ = self.MoveGenerator.GenerateLegalMoves(piece, self.board)
@@ -188,6 +206,8 @@ class GrandMasterJudge:
                 self._perform_losing_agents_pass_through()
             elif infos['valid_move']:
                 break
+            num_move_attempts += 1
+            
 
 
         
@@ -205,6 +225,7 @@ class GrandMasterJudge:
                     self.collect_agent_rollout_buffer()
                     time.sleep(0.1)
                     self.current_agent = self.current_agent.next
+                    print('Switching Agents...')
                     
                 status = self.board.get_winner()
                 '''                  Agent 1     Agent 2 '''
