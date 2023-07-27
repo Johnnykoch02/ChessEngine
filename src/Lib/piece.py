@@ -8,16 +8,22 @@ sp = None
 class Piece:
     
     class Type(IntEnum): ## Characteristic Type
-        KING = 0
-        QUEEN = 1
-        KNIGHT = 2
-        BISHOP = 3
-        ROOK = 4
-        PAWN = 5
+        KING = 5
+        QUEEN = 4
+        KNIGHT = 3
+        BISHOP = 2
+        ROOK = 1
+        PAWN = 0
 
     class Color(IntEnum):
-        WHITE = 0
+        WHITE = -1
         BLACK = 1
+        
+        def __rshift__(self, __value) -> int:
+            return Piece.Color.BLACK if __value == Piece.Color.WHITE else Piece.Color.WHITE
+
+        def __lshift__(self, __value: int) -> int:
+            return self >> __value
     
     def __init__(self, type:Type, color:Color, square, visible=True):
         self.type = type
@@ -38,9 +44,9 @@ class Piece:
         self.square_on = None    
     
     def score(self):
-        return{Piece.Type.PAWN:1 + self.distance_from_queen(),
-         Piece.Type.KNIGHT:4, Piece.Type.ROOK:5, Piece.Type.BISHOP:5,
-         Piece.Type.QUEEN: 10, Piece.Type.KING: 20}[self.type]
+        return{Piece.Type.PAWN:0.15 - self.distance_from_queen(),
+         Piece.Type.KNIGHT:0.3, Piece.Type.ROOK:0.4, Piece.Type.BISHOP:0.4,
+         Piece.Type.QUEEN: 1.5, Piece.Type.KING: 0}[self.type]
 
     def destroy(self):
         self.selected = False

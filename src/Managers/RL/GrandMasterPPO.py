@@ -10,7 +10,7 @@ import random
 import gym
 
 from .GrandMasterEnviornment import GrandMasterEnv
-from .GrandMasterFeaturesExtractor import GrandMasterFeaturesExtractor
+from .GrandMasterNetwork import GrandMasterFeaturesExtractor
 from stable_baselines3.common.utils import obs_as_tensor
 from stable_baselines3.common.logger import configure
 
@@ -49,6 +49,7 @@ class AgentPtr:
         self.env = env
         self.next = None
         self.team = team
+
 
 
 class GrandMasterJudge:
