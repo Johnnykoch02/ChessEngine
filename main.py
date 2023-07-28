@@ -20,7 +20,7 @@ commands = {'exit': {'fnc': sys.exit , 'args':['load_dir', 'num_steps']},
             'play': {'fnc': None, 'args':None},
             'data': {'fnc': None, 'args':None},
             'pretrain': {'fnc': None, 'args':None},
-       
+            'mc_simulate': {'fnc': None, 'args':None},
             }
 
 def main():
@@ -52,7 +52,9 @@ def main():
         
         elif cmd == 'pretrain':
             iAppManager.set_PreTrain()
-            
+        
+        elif cmd == 'mc_simulate':
+            iAppManager.MCSimulate()
         
 
 

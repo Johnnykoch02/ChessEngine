@@ -6,6 +6,9 @@ import random
 import numpy as np
 import time
 
+from src.Managers.RL.GrandMasterMCTS import MCTS
+from src.Managers.RL.GrandMasterEnviornment import GrandMasterEnv
+
 game_screen = [None]
 drawables = []
 
@@ -108,6 +111,9 @@ class AppManager:
             elif self.mode == 'data_collection':
                 self.DataCollection()
                 i+=1
+            
+            elif self.mode == 'mc_simulate':
+                self.MCSimulate()
                 
 
                 # time.sleep(0.2)
@@ -175,6 +181,37 @@ class AppManager:
     def set_DataCollection(self):
         self.mode = 'data_collection'
         # self.draw_thread.start()
+        
+    def set_MCSimulate(self):
+        self.mode = 'mc_simulate'
+        # self.draw_thread.start()
+        
+    def MCSimulate(self, n_games=1000):
+        mc_sim = MCTS()
+        player = self.current_player
+        board = self.board
+        envP1 = GrandMasterEnv(board, self.black_player.type) #TODO: Change GMEnv to take in agents as input.
+        envP2 = GrandMasterEnv(board, self.white_player.type)
+        envs = deque([envP1, envP2])
+        c_env = envs.popleft()
+        done = False
+        p_games = 0
+        while p_games < n_games:
+            if done:
+                c_env.reset()
+                envs = deque([envP1, envP2])
+                c_env = envs.popleft()
+                p_games+=1
+                
+            move = mc_sim.Simulate(board.create_virtual_board(), c_env._team_color, c_env, self.MoveGenerator, sim_depth=4, n_playout=1000, n_simulations=500,)
+            piece = board.get_square(move[0].square)
+            board.play_move(piece, move[1])
+            envs.push(c_env)
+            c_env = envs.popleft()
+            _, done = c_env.get_currrent_reward()
+        
+        # Save Trained Value network for Inference over future games
+        mc_sim.net.save_checkpoint()     
     
     def set_PreTrain(self):
         self.DataCollector.pretrain()
@@ -289,6 +326,9 @@ class DataCollector():
         observations, actions = self.load()
         pretrain_agent(model, observations, actions, batch_size, epochs=25, test_batch_size=batch_size//8,no_cuda=False)
         model.save(os.path.join(os.getcwd(), 'src', 'Managers', 'PretrainedModel', 'PretrainedModel.pkl'))
+    
+    
+        
 
         
 

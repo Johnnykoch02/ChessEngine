@@ -109,10 +109,11 @@ class GrandMasterNetwork(nn.Module):
         
         
         
-class GrandMasterValueAproximater(nn.Module):
+class GrandMasterValueAproximator(nn.Module):
     def __init__(self, observation_space):
-        super(GrandMasterFeaturesExtractor, self).__init__()         
+        super(GrandMasterValueAproximator, self).__init__()         
         self.observation_space = observation_space
+        self.checkpoint_file = "./GM_ValueAproximator_Weights.zip"
         
         self.residuals = [
             nn.Sequential(
@@ -152,5 +153,19 @@ class GrandMasterValueAproximater(nn.Module):
         x = th.cat([x, obs['team_color'], obs['score'], obs['check']], dim=1)
         x = self.output_block(x)
         return x
+    
+    @staticmethod
+    def Load_Model(model_path):
+        model = GrandMasterValueAproximator(None)
+        model.load_state_dict(th.load(model_path))
+        model.eval()
+        return model
+    
+    def save_checkpoint(self, file=None):
+        print('[GrandMasterValueAproximator] Saving Checkpoint...')
+        if file != None:
+            th.save(self.state_dict(), file)
+        elif self.checkpoint_file != None:
+            th.save(self.state_dict(), self.checkpoint_file) 
     
     
