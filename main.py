@@ -17,7 +17,10 @@ def extract_command(command:str):
 commands = {'exit': {'fnc': sys.exit , 'args':['load_dir', 'num_steps']},
             'train': {'fnc': None , 'args':['load_dir', 'num_steps']},
             'demo': {'fnc': None, 'args':['model_loc']},
-            'play': {'fnc': None, 'args':None}
+            'play': {'fnc': None, 'args':None},
+            'data': {'fnc': None, 'args':None},
+            'pretrain': {'fnc': None, 'args':None},
+       
             }
 
 def main():
@@ -42,6 +45,13 @@ def main():
         
         elif cmd == 'play':
             iAppManager.Run()
+        
+        elif cmd == 'data':
+            iAppManager.set_DataCollection()
+            iAppManager.Run()
+        
+        elif cmd == 'pretrain':
+            iAppManager.set_PreTrain()
             
         
 

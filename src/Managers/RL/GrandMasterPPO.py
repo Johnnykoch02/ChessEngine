@@ -5,10 +5,18 @@ from stable_baselines3.ppo import MlpPolicy, MultiInputPolicy
 import os
 import sys
 import time
+import random
+
+import gym
 
 from .GrandMasterEnviornment import GrandMasterEnv
-from .GrandMasterFeaturesExtractor import GrandMasterFeaturesExtractor
+from .GrandMasterNetwork import GrandMasterFeaturesExtractor
 from stable_baselines3.common.utils import obs_as_tensor
+from stable_baselines3.common.logger import configure
+
+
+# set up logger
+# Set new logger
 
 import numpy as np
 import torch as th
@@ -24,14 +32,14 @@ class GrandMasterPPO(PPO):
             - Model Controllers: two models, 1 for each color, Model Controller will need to implement two GrandMasterPPOs and
             train after N number of steps, similar to how their algorithms already function. 
             - These Models are going to share a common enviornment
-            - 
+            - (policy, env, learning_rate=0.0003, n_steps=2048, batch_size=64, n_epochs=10, gamma=0.99, gae_lambda=0.95, 
+            clip_range=0.2, clip_range_vf=None, normalize_advantage=True, ent_coef=0.0, vf_coef=0.5, max_grad_norm=0.5, use_sde=False, 
+            sde_sample_freq=-1, target_kl=None, tensorboard_log=None, policy_kwargs=None, verbose=0, seed=None, device='auto', _init_setup_model=True)
     '''
     
-    def __init__(self, env=GrandMasterEnv(), learning_rate=5e-4, gamma=0.99, lam=0.95, clip_range=0.2, clip_range_vf=None,
-                 n_steps=128, nminibatches=4, ent_coef=0.0, vf_coef=0.5, max_grad_norm=0.5,
-                 adaptive_kl_penalty=2.0, t_total=-1, policy_kwargs=dict(features_extractor_class=GrandMasterFeaturesExtractor,net_arch=[512, 256, dict(pi=[128,64], vf=[128,64])]), tensorboard_log=None,
+    def __init__(self, env=GrandMasterEnv(), n_steps=512, nminibatches=6, ent_coef=0.05,  policy_kwargs=dict(features_extractor_class=GrandMasterFeaturesExtractor,net_arch=[1200, 860, 512, dict(pi=[256,64], vf=[256,64])]), tensorboard_log=None,
                  create_eval_env=False, seed=None, reward_scale=1.0, **kwargs):
-        super(GrandMasterPPO, self).__init__(env=env, policy=str('MultiInputPolicy'),verbose = 1,policy_kwargs= policy_kwargs, learning_rate=0.01, tensorboard_log=tensorboard_log)
+        super(GrandMasterPPO, self).__init__(env=env, policy=str('MultiInputPolicy'),ent_coef=ent_coef, n_steps=n_steps, batch_size=128,verbose = 1,policy_kwargs= policy_kwargs, learning_rate=0.005, tensorboard_log='.')
 
 
 class AgentPtr:
@@ -43,14 +51,19 @@ class AgentPtr:
         self.team = team
 
 
+
 class GrandMasterJudge:
-    def __init__(self, agent1:AgentPtr, agent2:AgentPtr, save_dir, log_dir, num_games=10, num_epochs=50):
+    def __init__(self, agent1:AgentPtr, agent2:AgentPtr, save_dir, log_dir, draw_to_screen, num_games=10, num_epochs=50):
         self.agent1 = agent1
         self.agent2 = agent2
         self.current_agent = agent1
         self.agent1.next = agent2
         self.agent2.next = agent1
-        
+        logger = configure(log_dir, ["stdout", "csv", "tensorboard"])
+        self.agent1.model.set_logger(logger)
+        self.agent2.model.set_logger(logger)
+        self.agent1.model.rollout_buffer.buffer_size = 1024
+        self.agent2.model.rollout_buffer.buffer_size = 1024      
         from src.Utils.imports import Board, MoveGenerator, Piece
         self.Board = Board
         self.Piece = Piece
@@ -62,33 +75,143 @@ class GrandMasterJudge:
         self.last_obs = None
         self.save_dir = save_dir
         self.log_dir = log_dir
+        self.draw_to_screen = draw_to_screen
         
         agent1.team = Piece.Color.BLACK
         agent2.team = Piece.Color.WHITE
         
         self.agent1.env = GrandMasterEnv(board=self.board, team_color=self.agent1.team)
         self.agent2.env = GrandMasterEnv(board=self.board, team_color=self.agent2.team)
+    
+    def make_random_move(self, color):
+        pieces = self.board.get_white_pieces() if color == self.Piece.Color.WHITE else self.board.get_black_pieces()
+        piece = None
+        move = None
+        while True:
+            piece = np.random.choice(pieces)
+            moves = self.MoveGenerator.GenerateLegalMoves(piece, self.board)[0]
+            if moves:
+                move = random.choice(moves)
+                break
+        self.board.play_move(piece, move)
+        
         
     def _perform_losing_agents_pass_through(self):
         rollout_buffer = self.current_agent.next.model.rollout_buffer
+        policy = self.current_agent.next.model.policy
 
-        if rollout_buffer.size() == rollout_buffer.buffer_size-1:
-            self.current_agent.next.model.train(rollout_buffer.size()//3, progress_bar=True)
-            rollout_buffer.reset()
-        ''' Update Variables for the current Model's Obersvations and Actions '''
-        _, wk_check, wk_ckm = self.MoveGenerator.GenerateLegalMoves(self._board.white_king, self._board)
-        _, bk_check, bk_ckm = self.MoveGenerator.GenerateLegalMoves(self._board.black_king, self._board)
-        self.board.update_board_state(wk_check, wk_ckm, bk_check, bk_ckm)
+        if rollout_buffer.full:
+                with th.no_grad():
+                # Compute value for the last timestep
+                    values = policy.predict_values(obs_as_tensor(self.board.get_state(self.current_agent.next.team), self.device))
+                    rollout_buffer.compute_returns_and_advantage(last_values=values, dones=np.array([1]))
+                self.current_agent.next.model.train()
+                rollout_buffer.reset()
+
+        policy.set_training_mode(False)
+        # Sample new weights for the state dependent exploration
+        if self.current_agent.next.model.use_sde:
+            policy.reset_noise(1)
+        if self.current_agent.next.model.use_sde and self.current_agent.next.model.sde_sample_freq > 0:
+                # Sample a new noise matrix
+                policy.reset_noise(1)
+        obs = self.board.get_state(self.current_agent.next.team)
+        with th.no_grad():
+            # Convert to pytorch tensor or to TensorDict
+            obs_tensor = obs_as_tensor(obs, self.current_agent.model.device)
+            actions, values, log_probs = policy(obs_tensor)
+            
+        actions = actions.cpu().numpy()
+        # Rescale and perform action
+        clipped_actions = actions
+        # Clip the actions to avoid out of bound error
+        if isinstance(self.current_agent.next.model.action_space, gym.spaces.Box):
+            clipped_actions = np.clip(actions, self.current_agent.next.model.action_space.low, self.current_agent.next.model.action_space.high)
         
-        current_state = self.board.get_state(self.current_agent.next.team)
-        obs = obs_as_tensor(current_state, device='cuda')
-        action, values, log_prob = self.current_agent.next.model.policy.forward(obs, deterministic=True)
-        action = action.cpu().numpy()
-        _, reward, done, _ = self.current_agent.next.env.step(None, None, None, current_state['check'] )
-        rollout_buffer.add(current_state, action, np.ones(1), values, log_prob)
+        _, rewards, dones, infos = self.current_agent.next.env.step(None, None, None, obs['check'])
+        # Give access to local variables
+        
+        if isinstance(self.current_agent.next.model.action_space, gym.spaces.Discrete):
+            # Reshape in case of discrete action
+            actions = actions.reshape(-1, 1)
+        
+        rollout_buffer.add(obs, actions, rewards, np.ones(shape=(1,)), values, log_probs)
     
-    def convert_to_action(self, action):
-        pass
+    def collect_agent_rollout_buffer(self):
+        rollout_buffer = self.current_agent.model.rollout_buffer
+        policy = self.current_agent.model.policy
+        
+        ''' Update Variables for the current Model's Obersvations and Actions '''
+        _, wk_check, wk_ckm = self.MoveGenerator.GenerateLegalMoves(self.board.white_king, self.board)
+        _, bk_check, bk_ckm = self.MoveGenerator.GenerateLegalMoves(self.board.black_king, self.board)
+        self.board.update_board_state(wk_check, wk_ckm, bk_check, bk_ckm)
+        num_move_attempts = 0
+        while True:
+            if num_move_attempts > 99:
+                print('Making Random Move')
+                self.make_random_move(self.current_agent.team)
+                break
+            # self.draw_to_screen()
+            if rollout_buffer.full:
+                with th.no_grad():
+                    policy.set_training_mode(True)
+                # Compute value for the last timestep
+                    values = policy.predict_values(obs_as_tensor(self.board.get_state(self.current_agent.team), self.current_agent.model.device))
+                    rollout_buffer.compute_returns_and_advantage(last_values=values, dones=np.array([0]))
+                
+                print('Training Agent...')
+                self.current_agent.model.train()
+                rollout_buffer.reset()
+
+            policy.set_training_mode(False)
+
+            # Sample new weights for the state dependent exploration
+            if self.current_agent.model.use_sde:
+                policy.reset_noise(1)
+
+
+            if self.current_agent.model.use_sde and self.current_agent.model.sde_sample_freq > 0:
+                    # Sample a new noise matrix
+                    policy.reset_noise(1)
+            obs = self.board.get_state(self.current_agent.team)
+            
+            with th.no_grad():
+                # Convert to pytorch tensor or to TensorDict
+                obs_tensor = obs_as_tensor(obs, self.current_agent.model.device)
+                actions, values, log_probs = policy(obs_tensor)
+                
+            actions = actions.cpu().numpy()
+            # Rescale and perform action
+            clipped_actions = actions
+
+            # Clip the actions to avoid out of bound error
+            if isinstance(self.current_agent.model.action_space, gym.spaces.Box):
+                clipped_actions = np.clip(actions, self.current_agent.model.action_space.low, self.current_agent.model.action_space.high)
+            
+            print('Actions: ', clipped_actions)
+            piece = self.board.get_square((clipped_actions[0,0]//8, clipped_actions[0,0]%8))
+            move = (clipped_actions[0,1]//8, clipped_actions[0,1]%8)
+            moveset, _, _ = self.MoveGenerator.GenerateLegalMoves(piece, self.board)
+
+            _, rewards, dones, infos = self.current_agent.env.step(piece, move, moveset, obs['check'])
+            # self.draw_to_screen()
+            # Give access to local variables
+            # time.sleep(0.1)
+            if isinstance(self.current_agent.model.action_space, gym.spaces.Discrete):
+                # Reshape in case of discrete action
+                actions = actions.reshape(-1, 1)
+            
+            rollout_buffer.add(obs, actions, rewards, np.ones(shape=(1,)), values, log_probs)
+            if dones:
+                print('Game Finished...')
+                self._perform_losing_agents_pass_through()
+            elif infos['valid_move']:
+                break
+            num_move_attempts += 1
+            
+
+
+        
 
                         
     def train_agents(self):
@@ -100,38 +223,15 @@ class GrandMasterJudge:
                 self.agent1.env.reset()
                 self.agent2.env.reset()
                 while not any(self.board.get_winner(self.Piece.Color.BLACK)):
-                    rollout_buffer = self.current_agent.model.rollout_buffer
-
-                    if rollout_buffer.size() == rollout_buffer.buffer_size -1:
-                        self.current_agent.model.train(rollout_buffer.size()//3, progress_bar=True)
-                        rollout_buffer.reset()
-                    ''' Update Variables for the current Model's Obersvations and Actions '''
-                    _, wk_check, wk_ckm = self.MoveGenerator.GenerateLegalMoves(self.board.white_king, self.board)
-                    _, bk_check, bk_ckm = self.MoveGenerator.GenerateLegalMoves(self.board.black_king, self.board)
-                    self.board.update_board_state(wk_check, wk_ckm, bk_check, bk_ckm)
-                    
-                    while True:
-                        current_state = self.board.get_state(self.current_agent.team)
-                        obs = obs_as_tensor(current_state, device='cuda')
-                        action, values, log_prob = self.current_agent.model.policy.forward(obs, deterministic=True)
-                        action = action.cpu().numpy()
-                        piece = self.board.get_square((action[0], action[1]))
-                        move = (action[2], action[3])
-                        moveset, _, _ = self.MoveGenerator.GenerateLegalMoves(piece, self.board)
-                        _, reward, done, info = self.current_agent.env.step(piece, move, moveset, current_state['check'] )
-                        
-                        rollout_buffer.add(current_state, action, np.ones(1), values, log_prob)
-                        if done:
-                            self._perform_losing_agents_pass_through()
-                        elif info['valid_move']:
-                            break
-                        
-                    time.sleep(0.5)
-                    
+                    self.collect_agent_rollout_buffer()
+                    time.sleep(0.1)
                     self.current_agent = self.current_agent.next
+                    print('Switching Agents...')
+                    
                 status = self.board.get_winner()
                 '''                  Agent 1     Agent 2 '''
                 self.score_line += status[1] - status[2]
+                print('Current Scoreline: ' + str(self.score_line))
                 tmp = self.agent1.color
                 self.agent1.color = self.agent2.color
                 self.agent2.color = tmp

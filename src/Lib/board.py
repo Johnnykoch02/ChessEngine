@@ -13,6 +13,8 @@ class Board:
         self.get_piece_from_fen = get_piece_from_fen
         self.PieceClass = Piece
         self.pieces = []
+        self.moves_played = 0
+        self.is_virtual = virtual
         if virtual:
             return
         drawables.append(self)
@@ -81,12 +83,16 @@ class Board:
         for p in self.pieces:
             if piece == p:
                 self.pieces.remove(piece)
+                if not self.is_virtual:
+                    print('Removing from Board:', piece)
                 break
             
     def place_piece(self, piece):
         self.pieces.append(piece)
     
     def play_move(self, piece, move):
+        if not self.is_virtual:
+            print(f'{piece.color} is Playing {str(piece.type)} to {move}.')
         self.remove_piece(piece)
         pq = self.get_square(move)
         if pq is not None:
@@ -98,13 +104,17 @@ class Board:
             pq.destroy()
         
         piece.square = move
+        self.moves_played += 1
         self.board_reset = False
          
-        if piece.type == piece.Type.PAWN:
+        if piece.type == self.PieceClass.Type.PAWN:
             if piece.square[0] == 0 and piece.color == piece.Color.BLACK or piece.square[0] == 7 and piece.color == piece.Color.WHITE:
                 piece.type = piece.Type.QUEEN
                 
         self.place_piece(piece)
+    
+    def pieces(self, color):
+        return self.get_black_pieces() if color == self.PieceClass.Color.BLACK else self.get_white_pieces()
     
     def get_black_pieces(self):
         black_pieces = []
@@ -135,29 +145,28 @@ class Board:
             s.fill(SELECTED_COLOR)           # this fills the entire surface
             game_screen[0].blit(s, (pos[1]*width,pos[0]*height))    # (0,0) are the top-left coordinates
     
-    def get_state(self, team_color):
-        board_state = np.zeros(shape=(8,8,2))
+    def get_state(self, team_color,):
+        board_state = np.zeros(shape=(3,8,8))
         for piece in self.pieces:
-            board_state[piece.square[0], piece.square[1], 0] = int(piece.color) + 1
-            board_state[piece.square[0], piece.square[1], 1] = int(piece.type) + 1
+            board_state[0, piece.square[0], piece.square[1]] = int(piece.color)
+            board_state[1, piece.square[0], piece.square[1]] = (int(piece.type) + 1) / 6
+        if piece!=None:
+            board_state[2,piece.square[0], piece.square[1]] = piece.score()
+        else:
+            print("ERROR: Invalid Function Call")
+            exit(1)
         white_score = self.get_white_score()
         black_score = self.get_black_score()
-        us = False
-        them = False
-        if team_color == self.PieceClass.Color.WHITE:
-            us = self.wK_in_check
-            them = self.bK_in_check
-        else:
-            us = self.bK_in_check
-            them = self.wK_in_check
+        
+        us, them = (self.wK_in_check, self.bK_in_check) if team_color == self.PieceClass.Color.WHITE else (self.bK_in_check, self.wK_in_check)
         
         score = white_score - black_score if team_color == self.PieceClass.Color.WHITE else black_score - white_score
 
         return {
             'board_state': board_state,
-            'team_color': int(team_color),
-            'score': score,
-            'check': np.array([us, them])
+            'team_color':  np.array([team_color]),
+            'score':  np.array([score]),
+            'check': np.array([us, them],),
         }
 
     def update_board_state(self, white_king_check, white_king_checkmate, black_king_check, black_king_checkmate):
@@ -166,11 +175,12 @@ class Board:
         self.bK_in_check = black_king_check
         self.bK_in_checkmate = black_king_checkmate
 
-    def get_white_score(self):
+    def get_white_score(self):#TODO: Implement efficient hashing algorithms for scoring.
         white_score = 0
         for piece in self.pieces:
             if piece.color == piece.Color.WHITE:
                 white_score += piece.score()
+            
         return white_score
         
     def get_black_score(self):
@@ -202,7 +212,7 @@ class Board:
         self.current_state = START_POS
         self.pieces = self.init_board()
 
-
+        self.moves_played = 0
         self.white_king = None
         self.black_king = None
         self.wK_in_check = False
@@ -217,4 +227,4 @@ class Board:
                 else:
                     self.black_king = piece
         self.current_color = None
-        board_reset = True
+        self.board_reset = True

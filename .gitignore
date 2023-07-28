@@ -1,3 +1,7 @@
-./__pycache
+*/__pycache/
 .vscode
 *.pyc
+*.csv
+*/Logs/
+*.npy
+*.npz
