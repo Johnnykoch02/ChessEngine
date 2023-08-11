@@ -77,6 +77,8 @@ class Board:
                 else:
                     virtual_board.black_king = piece
         virtual_board.current_color = self.current_color
+        virtual_board.bK_in_check, virtual_board.bK_in_checkmate  = self.bK_in_check, self.bK_in_checkmate
+        virtual_board.wK_in_check, virtual_board.wK_in_checkmate  = self.wK_in_check, self.wK_in_checkmate
         return virtual_board
     
     def remove_piece(self, piece):
@@ -113,7 +115,7 @@ class Board:
                 
         self.place_piece(piece)
     
-    def pieces(self, color):
+    def g_pieces(self, color):
         return self.get_black_pieces() if color == self.PieceClass.Color.BLACK else self.get_white_pieces()
     
     def get_black_pieces(self):

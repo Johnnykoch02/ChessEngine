@@ -76,8 +76,7 @@ action_space = Discrete(64)
 
 class GrandMasterEnv(Env):
     global observation_space, action_space
-    from ...Utils.imports import Piece, Board
-    def __init__(self, board:Board =None, team_color:Piece.Color = None):
+    def __init__(self, board =None, team_color = None):
         from ...Utils.imports import MoveGenerator
         super(GrandMasterEnv, self).__init__()
         '''Class Variables Required for Env'''

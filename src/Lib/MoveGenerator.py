@@ -13,6 +13,7 @@ class MoveGenerator:
         Figure out which piece it is
         """
         if piece is None:
+            print('Piece is none')
             return set(), None, None
         MoveTypes = Move.GetMoveSet(piece)
         LegalMoves = []

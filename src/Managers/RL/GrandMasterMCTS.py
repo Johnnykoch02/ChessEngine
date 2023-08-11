@@ -16,7 +16,7 @@ class MCTSNode:
         self.sim = sim
         self.state = state # Board associated with this node
         self.c_color = c_color
-        self.val = 0
+        self.val = state.get_state(self.c_color)['score']
         self.children = {}
         
     def select_child(self,): # not a leaf
@@ -41,19 +41,23 @@ class MCTSNode:
         c) return 
         '''
         v = 0
-        for _ in range(self.sim.n_playout):
+        for n_p in range(self.sim.n_playout):
+            print('\tN Playout:', n_p)
             color = self.c_color
             c_board = self.state.create_virtual_board()
-            for _ in range(self.sim.depth):
+            for n_d in range(self.sim.depth):
+                print('\t\tN Depth:', n_d)
                 moves = set()
-                for piece in c_board.pieces(color):
+                for piece in c_board.g_pieces(color):
                     for place in self.sim.MoveGenerator.GenerateLegalMoves(piece, c_board)[0]:
                         moves.add((piece, place))  
-                m = np.random.choice(moves)
+                moves = list(moves)
+                m = moves[np.random.randint(len(moves))]
                 c_board = c_board.create_virtual_board()
                 c_board.play_move(m[0], m[1])
                 color = color >> color # Update the Color
-                if any(c_board.get_winner()): break  
+                # c_board.
+                if any(c_board.get_winner(color)): break  
             v += c_board.get_state(self.sim.team_color,)['score'][0]
         v /= self.sim.n_playout # Avg Val per playout
         self.propagate(v) # Adds to all Parents in Tree
@@ -103,11 +107,13 @@ class MCTS:
         self.depth = sim_depth
         
         self.C = C
+        root = MCTSNode(self, init_state, team_color, team_color, )
+        root.simulate()
         for _ in range(n_simulations):
-            root = MCTSNode(self, init_state, team_color, team_color, )
-            root.simulate()
+            print('Sim:', n_simulations)
             c_node = root
             while not c_node.is_leaf():#TODO: self.n_visit +=1
+                c_node.n_visit+=1
                 c_node = c_node.select_child()
             c_node.simulate() # Simulates, creates new pathways, propagates value
         mse_loss = th.nn.MSELoss()
@@ -120,7 +126,7 @@ class MCTS:
                 self.net.train()
                 self.optimizer.zero_grad()
                 y = self.net(x)
-                loss = -mse_loss(y, vals)
+                loss = mse_loss(y, vals)
                 loss.backward()
                 self.optimizer.step()
                 replay.clear_memory()
