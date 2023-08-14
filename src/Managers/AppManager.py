@@ -203,7 +203,7 @@ class AppManager:
                 c_env = envs.popleft()
                 p_games+=1
                 
-            move = mc_sim.Simulate(board.create_virtual_board(), c_env._team_color, c_env, self.MoveGenerator, sim_depth=4, n_playout=1000, n_simulations=500,)
+            move = mc_sim.Simulate(board.create_virtual_board(), c_env._team_color, c_env, self.MoveGenerator, sim_depth=8, n_playout=50, n_simulations=100,)
             piece = board.get_square(move[0].square)
             board.play_move(piece, move[1])
             envs.push(c_env)

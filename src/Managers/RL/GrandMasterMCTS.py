@@ -25,7 +25,7 @@ class MCTSNode:
         
             
     def is_leaf(self,):
-        return len(self.children == 0)
+        return len(self.children) == 0
     
     def propagate(self, val):
         self.val += val
@@ -52,6 +52,7 @@ class MCTSNode:
                     for place in self.sim.MoveGenerator.GenerateLegalMoves(piece, c_board)[0]:
                         moves.add((piece, place))  
                 moves = list(moves)
+                if len(moves) == 0: break
                 m = moves[np.random.randint(len(moves))]
                 c_board = c_board.create_virtual_board()
                 c_board.play_move(m[0], m[1])
@@ -62,9 +63,9 @@ class MCTSNode:
         v /= self.sim.n_playout # Avg Val per playout
         self.propagate(v) # Adds to all Parents in Tree
         n_color = self.c_color >> self.c_color
-        for piece in c_board.pieces(color): # Generate Children nodes
+        for piece in c_board.g_pieces(color): # Generate Children nodes
             for move in self.sim.MoveGenerator.GenerateLegalMoves(piece, c_board)[0]:
-                n_board = self.c_board.create_virtual_board()
+                n_board = c_board.create_virtual_board()
                 n_board.play_move(piece, move)
                 self.children[(piece, move)] = MCTSNode(self.sim, n_board, n_color, self,)
 def GetSimulatedNodes(root: MCTSNode) -> List[MCTSNode]:
@@ -107,10 +108,10 @@ class MCTS:
         self.depth = sim_depth
         
         self.C = C
-        root = MCTSNode(self, init_state, team_color, team_color, )
+        root = MCTSNode(self, init_state, team_color, None, )
         root.simulate()
-        for _ in range(n_simulations):
-            print('Sim:', n_simulations)
+        for n_sim in range(n_simulations):
+            print('Sim:', n_sim)
             c_node = root
             while not c_node.is_leaf():#TODO: self.n_visit +=1
                 c_node.n_visit+=1
@@ -118,7 +119,7 @@ class MCTS:
             c_node.simulate() # Simulates, creates new pathways, propagates value
         mse_loss = th.nn.MSELoss()
         sim_nodes = GetSimulatedNodes(root)
-        replay = DictReplayBuffer(batch_size=batch_size)
+        replay = DictReplayBuffer(batch_size=batch_size, dict_keys=self.env.observation_space.keys(), )
         for s_node in sim_nodes:
             if len(replay.states) == replay.batch_size:
                 states, _, _, vals, _, _ = replay.generate_batches() # S, A, P, V, R, D
@@ -131,7 +132,7 @@ class MCTS:
                 self.optimizer.step()
                 replay.clear_memory()
                 
-            replay.store_memory(s_node.state.get_state(self.team_color), {'n': None}, None, s_node.val, 0, False) # Storing State and Value for now
+            replay.store_memory(s_node.state.get_state(self.team_color), None, None, s_node.val, 0, False) # Storing State and Value for now
          
         # Return Roots highest valued transition
         s_by = lambda tup: tup[1].val
