@@ -38,10 +38,14 @@ class Player:
     def __init__(self, type:'str', piece_fn):
         from src.Utils.imports import Piece
         self.PieceTypes = Piece.Color
+        self.__colorstr = type
         self.type = self.PieceTypes.BLACK if type == 'black' else self.PieceTypes.WHITE
         self.move_stack = deque()
         self.next = None
         self.pieces = piece_fn
+    def __repr__(self,):
+        return f"Player {self.__colorstr.capitalize()}"
+    
         
 
 class AppManager:
@@ -188,7 +192,6 @@ class AppManager:
         
     def MCSimulate(self, n_games=1000):
         mc_sim = MCTS()
-        player = self.current_player
         board = self.board
         envP1 = GrandMasterEnv(board, self.black_player.type) #TODO: Change GMEnv to take in agents as input.
         envP2 = GrandMasterEnv(board, self.white_player.type)
@@ -202,13 +205,19 @@ class AppManager:
                 envs = deque([envP1, envP2])
                 c_env = envs.popleft()
                 p_games+=1
-                
-            move = mc_sim.Simulate(board.create_virtual_board(), c_env._team_color, c_env, self.MoveGenerator, sim_depth=8, n_playout=50, n_simulations=100,)
-            piece = board.get_square(move[0].square)
-            board.play_move(piece, move[1])
-            envs.push(c_env)
+            
+            ### MC Simulate CALL
+            move = mc_sim.Simulate(board.create_virtual_board(), c_env._team_color, c_env, self.MoveGenerator, sim_depth=6, n_playout=25, n_simulations=100, batch_size=8)
+            mc_sim.net.save_checkpoint() 
+            piece = board.get_square(move[0][0])
+            board.play_move(piece, move[0][1])
+            _header = f"{'-'*5}\n"
+            print(f'{_header*3}Player {c_env._team_color}: Played {piece.get_type_str()} to {piece.square}')
+            
+            envs.append(c_env)
             c_env = envs.popleft()
-            _, done = c_env.get_currrent_reward()
+            _, done = c_env.get_currrent_reward()    
+            
         
         # Save Trained Value network for Inference over future games
         mc_sim.net.save_checkpoint()     

@@ -57,7 +57,14 @@ class Piece:
         if self.color == Piece.Color.WHITE:
             return (7 - self.square[0]) / 7
         elif self.color == Piece.Color.BLACK:
-            return self.square[0] / 7    
+            return self.square[0] / 7  
+    def get_type_str(self,):
+        return {5: 'King',
+        4: 'Queen',
+        3: 'Knight',
+        2: 'Bishop',
+        1: 'Rook',
+        0: 'Pawn'}[int(self.type)]  
 
     def Draw(self):  
         global sp
@@ -93,3 +100,4 @@ def get_sprite_from_piece(piece:'Piece'):
          return {Piece.Type.KING: (0,334,333,333), Piece.Type.QUEEN: (333,334,333,333), 
         Piece.Type.BISHOP:(666,334,333,333), Piece.Type.KNIGHT: (999,334,333,333), 
         Piece.Type.ROOK: (1332,334,333,333), Piece.Type.PAWN:(1665,334,333,333)}[piece.type]
+         

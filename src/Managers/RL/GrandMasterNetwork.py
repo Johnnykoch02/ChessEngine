@@ -110,11 +110,12 @@ class GrandMasterNetwork(nn.Module):
         
         
 class GrandMasterValueAproximator(nn.Module):
-    def __init__(self, observation_space):
+    def __init__(self, observation_space, device='cuda'):
         super(GrandMasterValueAproximator, self).__init__()         
         self.observation_space = observation_space
         self.checkpoint_file = "./GM_ValueAproximator_Weights.zip"
-        
+        self.device = device
+        self.to(self.device)
         self.residuals = [
             nn.Sequential(
                         nn.Conv2d(in_channels=3, out_channels=32, kernel_size=(3,3), padding='same'),
@@ -128,6 +129,9 @@ class GrandMasterValueAproximator(nn.Module):
                         nn.BatchNorm2d(3),
                       )
             for _ in range(3)]
+        for r in self.residuals:
+            r.to(self.device)
+            
         self.compressor = nn.Sequential(
                         nn.Conv2d(in_channels=3, out_channels=32, kernel_size=(3,3), padding=0),
                         nn.Tanh(),
@@ -135,6 +139,8 @@ class GrandMasterValueAproximator(nn.Module):
                         nn.Tanh(),
                         nn.Flatten()
                       ) # Output shape: torch.Size([10, 128*4*4])
+        self.compressor.to(self.device)
+        
         self.output_block = nn.Sequential(
             nn.Linear(128*4*4 + 4, 1028),
             nn.LeakyReLU(),
@@ -144,6 +150,7 @@ class GrandMasterValueAproximator(nn.Module):
             nn.LeakyReLU(),
             nn.Linear(256, 1),
         )
+        self.output_block.to(self.device)
 
     def forward(self, obs):
         x = obs['board_state']

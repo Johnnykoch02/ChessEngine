@@ -63,11 +63,12 @@ class MCTSNode:
         v /= self.sim.n_playout # Avg Val per playout
         self.propagate(v) # Adds to all Parents in Tree
         n_color = self.c_color >> self.c_color
-        for piece in c_board.g_pieces(color): # Generate Children nodes
+        for piece in self.state.g_pieces(color): # Generate Children nodes
             for move in self.sim.MoveGenerator.GenerateLegalMoves(piece, c_board)[0]:
-                n_board = c_board.create_virtual_board()
+                n_board = self.state.create_virtual_board()
+                old_pos = piece.square
                 n_board.play_move(piece, move)
-                self.children[(piece, move)] = MCTSNode(self.sim, n_board, n_color, self,)
+                self.children[(old_pos, move)] = MCTSNode(self.sim, n_board, n_color, self,)
 def GetSimulatedNodes(root: MCTSNode) -> List[MCTSNode]:
     def rec_traversal(c_node, memo):
         for child in c_node.children.values():
@@ -86,11 +87,11 @@ class MCTS:
     TODO: Implement Neural Network in Value Approximation for further fast implementation
     """
     def __init__(self, lr= 0.005, device='cuda:0'): 
-        self.net = GrandMasterValueAproximator(None)
+        self.net = GrandMasterValueAproximator(None, device)
         self.device = th.device(device=device)
         self.optimizer = th.optim.Adam(self.net.parameters(), lr=lr)
     
-    def Simulate(self, init_state, team_color, env, MoveGenerator, n_playout=500, sim_depth=10, n_simulations=500, C=1.3, batch_size= 32) -> Tuple[object, ]:
+    def Simulate(self, init_state, team_color, env, MoveGenerator, n_playout=500, sim_depth=10, n_simulations=500, C=1.3, batch_size= 32, train_epochs = 5) -> Tuple[object, ]:
         """
         This algorithm randomly simulates states throughout the tree to find the average value of each state. By sampling randomly, we assume that our estimated value converges to the actual value of a state, as random play has equal chance of picking optimal as well as picking poorly.
         init_state: Board, the initial state of the game
@@ -120,24 +121,29 @@ class MCTS:
         mse_loss = th.nn.MSELoss()
         sim_nodes = GetSimulatedNodes(root)
         replay = DictReplayBuffer(batch_size=batch_size, dict_keys=self.env.observation_space.keys(), )
-        for s_node in sim_nodes:
-            if len(replay.states) == replay.batch_size:
-                states, _, _, vals, _, _ = replay.generate_batches() # S, A, P, V, R, D
-                x = dict_to_tensor(states, self.device)
-                self.net.train()
-                self.optimizer.zero_grad()
-                y = self.net(x)
-                loss = mse_loss(y, vals)
-                loss.backward()
-                self.optimizer.step()
-                replay.clear_memory()
-                
-            replay.store_memory(s_node.state.get_state(self.team_color), None, None, s_node.val, 0, False) # Storing State and Value for now
+        for epoch in range(train_epochs):
+            print(f'Training Epoch {epoch+1}...')
+            for s_node in sim_nodes:
+                if replay.size() == replay.batch_size:
+                    states, _, _, vals, _, _, batches = replay.generate_batches() # S, A, P, V, R, D
+                    x = dict_to_tensor(states, self.device)
+                    vals = th.tensor(vals, device=self.device, dtype=th.float)
+                    self.net.train()
+                    self.optimizer.zero_grad()
+                    y = self.net(x)
+                    loss = mse_loss(y, vals)
+                    loss.backward()
+                    self.optimizer.step()
+                    replay.clear_memory()
+
+                replay.store_memory(s_node.state.get_state(self.team_color), None, None, s_node.val, 0, False) # Storing State and Value for now
          
         # Return Roots highest valued transition
-        s_by = lambda tup: tup[1].val
-        best = max([tup for tup in root.children.items()], s_by)
-        return best[0]
+        s_by = lambda tup: tup[1].val #self.children[(piece, move)] = MCTSNode(self.sim, n_board, n_color, self,)
+        l = list(root.children.items())
+        l.sort(key=s_by, reverse=True)
+        best = l[0]
+        return best
             
                 
             
