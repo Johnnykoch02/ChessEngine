@@ -29,10 +29,14 @@ class MCTSNode:
     
     def propagate(self, val):
         self.val += val
+        self.n_visit += 1
         if self.parent: self.parent.propagate(val)
     
     def UCT(self, C):
-        return (self.val / self.n_visit) + C*math.sqrt(math.log(self.parent.n_visit) / self.n_visit)
+        return self.value() + C*math.sqrt(math.log(self.parent.n_visit) / self.n_visit)
+    
+    def value(self,):
+        return (self.val / self.n_visit)
     
     def simulate(self):
         '''
@@ -54,16 +58,14 @@ class MCTSNode:
                 moves = list(moves)
                 if len(moves) == 0: break
                 m = moves[np.random.randint(len(moves))]
-                c_board = c_board.create_virtual_board()
                 c_board.play_move(m[0], m[1])
                 color = color >> color # Update the Color
-                # c_board.
                 if any(c_board.get_winner(color)): break  
             v += c_board.get_state(self.sim.team_color,)['score'][0]
         v /= self.sim.n_playout # Avg Val per playout
         self.propagate(v) # Adds to all Parents in Tree
         n_color = self.c_color >> self.c_color
-        for piece in self.state.g_pieces(color): # Generate Children nodes
+        for piece in self.state.g_pieces(self.c_color): # Generate Children nodes
             for move in self.sim.MoveGenerator.GenerateLegalMoves(piece, c_board)[0]:
                 n_board = self.state.create_virtual_board()
                 old_pos = piece.square
@@ -115,7 +117,6 @@ class MCTS:
             print('Sim:', n_sim)
             c_node = root
             while not c_node.is_leaf():#TODO: self.n_visit +=1
-                c_node.n_visit+=1
                 c_node = c_node.select_child()
             c_node.simulate() # Simulates, creates new pathways, propagates value
         mse_loss = th.nn.MSELoss()
@@ -136,10 +137,10 @@ class MCTS:
                     self.optimizer.step()
                     replay.clear_memory()
 
-                replay.store_memory(s_node.state.get_state(self.team_color), None, None, s_node.val, 0, False) # Storing State and Value for now
+                replay.store_memory(s_node.state.get_state(self.team_color), None, None, s_node.value(), 0, False) # Storing State and Value for now
          
         # Return Roots highest valued transition
-        s_by = lambda tup: tup[1].val #self.children[(piece, move)] = MCTSNode(self.sim, n_board, n_color, self,)
+        s_by = lambda tup: tup[1].value() #self.children[(piece, move)] = MCTSNode(self.sim, n_board, n_color, self,)
         l = list(root.children.items())
         l.sort(key=s_by, reverse=True)
         best = l[0]
