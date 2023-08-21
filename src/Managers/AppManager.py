@@ -210,10 +210,9 @@ class AppManager:
             move = mc_sim.Simulate(board.create_virtual_board(), c_env._team_color, c_env, self.MoveGenerator, sim_depth=6, n_playout=25, n_simulations=100, batch_size=8)
             mc_sim.net.save_checkpoint() 
             piece = board.get_square(move[0][0])
-            board.play_move(piece, move[0][1])
+            _, _, done, _ = c_env.step(piece, move[0][1], [move[0][1]], [False, False])
             _header = f"{'-'*5}\n"
             print(f'{_header*3}Player {c_env._team_color}: Played {piece.get_type_str()} to {piece.square}')
-            
             envs.append(c_env)
             c_env = envs.popleft()
             _, done = c_env.get_currrent_reward()    

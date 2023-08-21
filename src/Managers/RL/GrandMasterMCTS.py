@@ -66,7 +66,7 @@ class MCTSNode:
         self.propagate(v) # Adds to all Parents in Tree
         n_color = self.c_color >> self.c_color
         for piece in self.state.g_pieces(self.c_color): # Generate Children nodes
-            for move in self.sim.MoveGenerator.GenerateLegalMoves(piece, c_board)[0]:
+            for move in self.sim.MoveGenerator.GenerateLegalMoves(piece, self.state)[0]:
                 n_board = self.state.create_virtual_board()
                 old_pos = piece.square
                 n_board.play_move(piece, move)
@@ -111,7 +111,7 @@ class MCTS:
         self.depth = sim_depth
         
         self.C = C
-        root = MCTSNode(self, init_state, team_color, None, )
+        root = MCTSNode(self, init_state.create_virtual_board(), team_color, None, )
         root.simulate()
         for n_sim in range(n_simulations):
             print('Sim:', n_sim)

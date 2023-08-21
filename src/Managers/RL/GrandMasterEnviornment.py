@@ -100,20 +100,11 @@ class GrandMasterEnv(Env):
         self._team_color = team_color
 
     def step(self, piece, move, moveset, check):
-        '''
-        '''
         info = {'valid_move': False}
-        if piece is None:
-            pass
-        elif piece.color is not self._team_color:
-            pass
-        elif move not in moveset:
-            pass
-        else:
-            info['valid_move'] = True
-            self._board.play_move(piece, move)
+        info= {'valid_move': piece != None and piece.color == self._team_color and move in moveset}
+        self._board.play_move(piece, move)
             
-        time.sleep(0.1)
+        # time.sleep(0.1)
         state = self._board.get_state(self._team_color)
         reward, done = self.get_currrent_reward(state['score'], check)
         
