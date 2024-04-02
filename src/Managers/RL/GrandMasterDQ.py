@@ -35,15 +35,16 @@ class RolloutBuffer(object):
             state = np.squeeze(state, axis=0)
         if len(action.shape > 1):
             action = np.squeeze(action, axis=0)
-        
-        self .temp_transition = {
-            'state': state, 'action': action, 'reward': reward, 'terminal': terminal
+
+        self.temp_transition = {
+            "state": state,
+            "action": action,
+            "reward": reward,
+            "terminal": terminal,
         }
 
     def finish_transition(self, state_):
         if len(state_.shape[0] == 1):
             state_ = np.squeeze(state_, axis=0)
-        self.temp_transition['state_'] = state_
-        self.mem_cntr +=1 
-        
-    
+        self.temp_transition["state_"] = state_
+        self.mem_cntr += 1

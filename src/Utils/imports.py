@@ -1,11 +1,19 @@
-#app manager
+# app manager
 
-from .config import BACKROUND_COLOR, SQUARE_COLOR, SELECTED_COLOR, APP_DIMENSIONS, SQUARE_DIMENSIONS, add_two_pos, is_in_board
+from .config import (
+    BACKROUND_COLOR,
+    SQUARE_COLOR,
+    SELECTED_COLOR,
+    APP_DIMENSIONS,
+    SQUARE_DIMENSIONS,
+    add_two_pos,
+    is_in_board,
+)
 
 # board
 import pygame as pygame
 
-#pieces 
+# pieces
 
 import os
 
@@ -20,5 +28,9 @@ from ..Lib.piece import Piece, get_piece_from_fen, get_sprite_from_piece
 from ..Lib.MoveGenerator import MoveGenerator
 
 from ..Managers.RL.GrandMasterPPO import GrandMasterPPO, GrandMasterJudge, AgentPtr
-from ..Managers.RL.GrandMasterEnviornment import GrandMasterEnv, observation_space, action_space
+from ..Managers.RL.GrandMasterEnviornment import (
+    GrandMasterEnv,
+    observation_space,
+    action_space,
+)
 from ..Managers.RL.Pretraier import pretrain_agent

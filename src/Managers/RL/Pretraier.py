@@ -1,6 +1,6 @@
 from torch.utils.data.dataset import Dataset, random_split
 from gzip import GzipFile
-import numpy as np 
+import numpy as np
 import torch as th
 import gym
 import torch.nn as nn
@@ -17,18 +17,23 @@ from stable_baselines3.a2c import A2C
 # from custom_network import ppo_model, env
 from gym.spaces import Box
 
+
 class ExpertDataSet(Dataset):
     def __init__(self, observations, actions):
         self.observations = observations
         self.actions = actions
-        self.keys = ['board_state', 'team_color', 'score', 'check', 'random_state']
+        self.keys = ["board_state", "team_color", "score", "check", "random_state"]
         print(self.observations.shape)
-        
+
     def __getitem__(self, index):
-        return ({key: self.observations[index][key] for key in self.keys}, self.actions[index])
+        return (
+            {key: self.observations[index][key] for key in self.keys},
+            self.actions[index],
+        )
 
     def __len__(self):
         return len(self.observations)
+
 
 # with GzipFile('formatted_actions_single.npy.gz', 'r') as f:
 #     expert_actions = np.load(f, allow_pickle = True)
@@ -42,18 +47,18 @@ class ExpertDataSet(Dataset):
 
 
 # expert_observations = {
-            # 'hand_config': expert_observations[:, 2],
-            # 'hand_torque': expert_observations[:, 7],
-            # 'finger_1_tactile': expert_observations[:, 4],
-            # 'finger_2_tactile': expert_observations[:, 5],
-            # 'finger_3_tactile': expert_observations[:, 6],
-            # 'ball_count': expert_observations[:, 0],
-            # 'ball_location': expert_observations[:, 1]  
-            # }
+# 'hand_config': expert_observations[:, 2],
+# 'hand_torque': expert_observations[:, 7],
+# 'finger_1_tactile': expert_observations[:, 4],
+# 'finger_2_tactile': expert_observations[:, 5],
+# 'finger_3_tactile': expert_observations[:, 6],
+# 'ball_count': expert_observations[:, 0],
+# 'ball_location': expert_observations[:, 1]
+# }
 
 # distribution = {finger: {action:0 for action in range(3)} for finger in range(1,4)}
 # for action in expert_actions:
-  
+
 #   distribution[1][action[0]] += 1
 #   distribution[2][action[1]] += 1
 #   distribution[3][action[2]] += 1
@@ -104,6 +109,7 @@ class ExpertDataSet(Dataset):
 
 loss_series = []
 
+
 def pretrain_agent(
     student,
     expert_observations,
@@ -124,7 +130,7 @@ def pretrain_agent(
     test_size = len(expert_dataset) - train_size
 
     train_expert_dataset, test_expert_dataset = random_split(
-     expert_dataset, [train_size, test_size]
+        expert_dataset, [train_size, test_size]
     )
     env = student.get_env()
 
@@ -135,10 +141,10 @@ def pretrain_agent(
     kwargs = {"num_workers": 1, "pin_memory": True} if use_cuda else {}
 
     if isinstance(env.action_space, gym.spaces.Box):
-      criterion = nn.MSELoss()
+        criterion = nn.MSELoss()
     else:
-      criterion = nn.CrossEntropyLoss()
-    
+        criterion = nn.CrossEntropyLoss()
+
     # criterion = nn.MSELoss()
 
     # Extract initial policy
@@ -152,32 +158,32 @@ def pretrain_agent(
         for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data, target.to(device)
             # data, target = data, target
-            
+
             for key, value in data.items():
-              data[key] = data[key].to(device)
-              # data[key] = data[key]
-        
+                data[key] = data[key].to(device)
+                # data[key] = data[key]
+
             optimizer.zero_grad()
 
             if isinstance(env.action_space, gym.spaces.Box):
-              # A2C/PPO policy outputs actions, values, log_prob
-              # SAC/TD3 policy outputs actions only
-              if isinstance(student, (PPO)):
-                action, _, _ = model(data)
-              else:
-                # SAC/TD3:
-                action = model(data)
-              action_prediction = action.double()
+                # A2C/PPO policy outputs actions, values, log_prob
+                # SAC/TD3 policy outputs actions only
+                if isinstance(student, (PPO)):
+                    action, _, _ = model(data)
+                else:
+                    # SAC/TD3:
+                    action = model(data)
+                action_prediction = action.double()
             else:
-              # Retrieve the logits for A2C/PPO when using discrete actions
-              dist = model.get_distribution(data)
-              # action_prediction = [i.logits for i in dist.distribution]
-              action_prediction = [i.probs for i in dist.distribution]
-              # print(action_prediction)
-              target = target.long()
+                # Retrieve the logits for A2C/PPO when using discrete actions
+                dist = model.get_distribution(data)
+                # action_prediction = [i.logits for i in dist.distribution]
+                action_prediction = [i.probs for i in dist.distribution]
+                # print(action_prediction)
+                target = target.long()
             loss = criterion(action_prediction[0], target[:, 0])
             for i in range(1, len(action_prediction)):
-              loss+= criterion(action_prediction[i], target[:, i])
+                loss += criterion(action_prediction[i], target[:, i])
 
             # loss1 = criterion(action_prediction[0], target[:, 0])
             # loss2 = criterion(action_prediction[1], target[:, 1])
@@ -189,9 +195,9 @@ def pretrain_agent(
             optimizer.step()
 
             batch_losses.append(loss)
-        print('TRAIN', epoch, sum(batch_losses))
-        
-        loss_series.append(sum(batch_losses))  
+        print("TRAIN", epoch, sum(batch_losses))
+
+        loss_series.append(sum(batch_losses))
 
     def test(model, device, test_loader):
         model.eval()
@@ -202,28 +208,28 @@ def pretrain_agent(
                 # data, target = data, target
 
                 for key, value in data.items():
-                  data[key] = data[key].to(device)
-                  # data[key] = data[key]
+                    data[key] = data[key].to(device)
+                    # data[key] = data[key]
 
                 if isinstance(env.action_space, gym.spaces.Box):
-                  # A2C/PPO policy outputs actions, values, log_prob
-                  # SAC/TD3 policy outputs actions only
-                  if isinstance(student, (A2C, PPO)):
-                    action, _, _ = model(data)
-                  else:
-                    # SAC/TD3:
-                    action = model(data)
-                  action_prediction = action.double()
+                    # A2C/PPO policy outputs actions, values, log_prob
+                    # SAC/TD3 policy outputs actions only
+                    if isinstance(student, (A2C, PPO)):
+                        action, _, _ = model(data)
+                    else:
+                        # SAC/TD3:
+                        action = model(data)
+                    action_prediction = action.double()
                 else:
-                  # Retrieve the logits for A2C/PPO when using discrete actions
-                  dist = model.get_distribution(data)
-                  # action_prediction = [i.logits for i in dist.distribution]
-                  action_prediction = [i.probs for i in dist.distribution]
-                  target = target.long()
+                    # Retrieve the logits for A2C/PPO when using discrete actions
+                    dist = model.get_distribution(data)
+                    # action_prediction = [i.logits for i in dist.distribution]
+                    action_prediction = [i.probs for i in dist.distribution]
+                    target = target.long()
 
                 test_loss = criterion(action_prediction[0], target[:, 0])
                 for i in range(1, len(action_prediction)):
-                    test_loss+= criterion(action_prediction[i], target[:, i])
+                    test_loss += criterion(action_prediction[i], target[:, i])
 
         print(f"Test set: Average loss: {test_loss}")
 
@@ -235,11 +241,14 @@ def pretrain_agent(
     )
 
     test_loader = th.utils.data.DataLoader(
-        dataset=test_expert_dataset, batch_size=test_batch_size, shuffle=True, **kwargs,
+        dataset=test_expert_dataset,
+        batch_size=test_batch_size,
+        shuffle=True,
+        **kwargs,
     )
 
     # Define an Optimizer and a learning rate schedule.
-    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay = 0.1)
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=0.1)
     scheduler = StepLR(optimizer, step_size=1, gamma=scheduler_gamma)
 
     # Now we are finally ready to train the policy model.
@@ -247,7 +256,6 @@ def pretrain_agent(
         train(model, device, train_loader, optimizer)
         test(model, device, test_loader)
         scheduler.step()
-
 
 
 # pretrain_agent(
@@ -261,4 +269,3 @@ def pretrain_agent(
 #     batch_size=128,
 #     test_batch_size=128,
 # )
-
