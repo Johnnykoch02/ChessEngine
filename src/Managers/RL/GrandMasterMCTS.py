@@ -96,7 +96,7 @@ class MCTSNode:
                 )
 
 
-def GetSimulatedNodes(root: MCTSNode) -> List[MCTSNode]:
+def get_simulated_nodes(root: MCTSNode) -> List[MCTSNode]:
     def rec_traversal(c_node, memo):
         for child in c_node.children.values():
             if not child.is_leaf():  # the only useful Value Nodes come from Simulation
@@ -163,19 +163,23 @@ class MCTS:
             team_color,
             None,
         )
+
         root.simulate()
+
         for n_sim in range(n_simulations):
             print("Sim:", n_sim)
             c_node = root
             while not c_node.is_leaf():  # TODO: self.n_visit +=1
                 c_node = c_node.select_child()
             c_node.simulate()  # Simulates, creates new pathways, propagates value
+
         mse_loss = th.nn.MSELoss()
-        sim_nodes = GetSimulatedNodes(root)
+        sim_nodes = get_simulated_nodes(root)
         replay = DictReplayBuffer(
             batch_size=batch_size,
             dict_keys=self.env.observation_space.keys(),
         )
+
         for epoch in range(train_epochs):
             print(f"Training Epoch {epoch+1}...")
             for s_node in sim_nodes:
